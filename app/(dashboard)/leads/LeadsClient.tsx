@@ -424,7 +424,7 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
     setLeads(leads.map((l) => l.id === lead.id ? { ...l, activities: data.activities } : l));
     const phone = lead.phone.replace(/\D/g, '');
     const salutation = lead.gender === 'Female' ? 'Ma\'am' : 'Sir';
-    const msg = encodeURIComponent(`Assalam o Alaikum ${lead.name} ${salutation}, How are you?`);
+    const msg = encodeURIComponent(`Assalam o Alaikum ${lead.name} Bhai Kaisay Hain Ap?`);
     window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${msg}&app_absent=0`, '_blank');
   };
 
