@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';nimport { getCountryFromPhone } from '@/lib/phone-country';
 
 interface LeadActivity {
   id: number; type: 'call' | 'whatsapp' | 'voice' | 'deal'; note: string; audioUrl: string; followUpDate: string; createdAt: string;
@@ -857,7 +857,7 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
                         </td>
                         <td>
                           <div style={{ fontSize: 12 }}>{l.email}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{l.phone}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{l.phone}</div>n                          {l.phone && (() => { const c = getCountryFromPhone(l.phone); return c ? (<span style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'2px 6px', borderRadius:6, fontSize:10, fontWeight:600, marginTop:3, background:c.bgColor, color:c.textColor, border:`1px solid ${c.borderColor}` }}>{c.flag} {c.name}</span>) : null; })()}
                         </td>
                         <td><span className="badge badge-new">{l.source}</span></td>
                         <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{formatPKR(l.budget)}</td>
