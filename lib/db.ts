@@ -60,6 +60,29 @@ export interface Lead {
   activities: LeadActivity[];
 }
 
+export interface InvoiceItem {
+  id: number;
+  invoiceId: number;
+  description: string;
+  leadCount: number;
+  pricePerLead: number;
+  total: number;
+}
+
+export interface Invoice {
+  id: number;
+  invoiceNumber: string;
+  agentId: number;
+  agentName?: string;
+  status: 'draft' | 'sent' | 'paid';
+  issueDate: string;
+  dueDate: string;
+  notes: string;
+  totalAmount: number;
+  items: InvoiceItem[];
+  createdAt: Date;
+}
+
 export interface CalendarEvent {
   id: number;
   title: string;
@@ -153,6 +176,25 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS seed_flag (
       id   INTEGER PRIMARY KEY,
       done INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS invoices (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoiceNumber TEXT NOT NULL UNIQUE,
+      agentId       INTEGER NOT NULL,
+      status        TEXT NOT NULL DEFAULT 'draft',
+      issueDate     TEXT NOT NULL DEFAULT (date('now')),
+      dueDate       TEXT NOT NULL DEFAULT (date('now', '+30 days')),
+      notes         TEXT NOT NULL DEFAULT '',
+      totalAmount   REAL NOT NULL DEFAULT 0,
+      createdAt     TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS invoice_items (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoiceId    INTEGER NOT NULL,
+      description  TEXT NOT NULL DEFAULT '',
+      leadCount    INTEGER NOT NULL DEFAULT 0,
+      pricePerLead REAL NOT NULL DEFAULT 0,
+      total        REAL NOT NULL DEFAULT 0
     );
   `);
 
@@ -496,4 +538,76 @@ export async function getDealActivities(isAdmin: boolean, agentId: number) {
     leadStage: String(r[7]), leadGender: String(r[8] || ''),
     agentId: Number(r[9]), agentName: String(r[10] || 'Unassigned'),
   }));
+}
+
+// ── Invoice Helpers ────────────────────────────────────────────────────────
+
+async function getInvoiceItems(invoiceIds: number[]): Promise<Record<number, InvoiceItem[]>> {
+  if (!invoiceIds.length) return {};
+  const res = await turso.execute({ sql: `SELECT * FROM invoice_items WHERE invoiceId IN (${invoiceIds.map(() => '?').join(',')})`, args: invoiceIds });
+  const map: Record<number, InvoiceItem[]> = {};
+  for (const r of res.rows) {
+    const item: InvoiceItem = { id: Number(r[0]), invoiceId: Number(r[1]), description: String(r[2]), leadCount: Number(r[3]), pricePerLead: Number(r[4]), total: Number(r[5]) };
+    if (!map[item.invoiceId]) map[item.invoiceId] = [];
+    map[item.invoiceId].push(item);
+  }
+  return map;
+}
+
+function rowToInvoice(r: any): Invoice {
+  return {
+    id: Number(r[0]), invoiceNumber: String(r[1]), agentId: Number(r[2]),
+    agentName: r[8] ? String(r[8]) : undefined,
+    status: r[3] as Invoice['status'], issueDate: String(r[4]),
+    dueDate: String(r[5]), notes: String(r[6] || ''),
+    totalAmount: Number(r[7]), createdAt: new Date(String(r[9] ?? r[8] ?? '')),
+    items: [],
+  };
+}
+
+export async function getInvoices(isAdmin: boolean, userId: number): Promise<Invoice[]> {
+  await initDb();
+  const sql = isAdmin
+    ? `SELECT i.id, i.invoiceNumber, i.agentId, i.status, i.issueDate, i.dueDate, i.notes, i.totalAmount, u.name as agentName, i.createdAt
+       FROM invoices i LEFT JOIN users u ON u.id = i.agentId ORDER BY i.createdAt DESC`
+    : `SELECT i.id, i.invoiceNumber, i.agentId, i.status, i.issueDate, i.dueDate, i.notes, i.totalAmount, u.name as agentName, i.createdAt
+       FROM invoices i LEFT JOIN users u ON u.id = i.agentId WHERE i.agentId = ? ORDER BY i.createdAt DESC`;
+  const res = isAdmin ? await turso.execute(sql) : await turso.execute({ sql, args: [userId] });
+  const invoices = res.rows.map((r) => rowToInvoice(r as any));
+  if (invoices.length > 0) {
+    const itemsMap = await getInvoiceItems(invoices.map((i) => i.id));
+    for (const inv of invoices) inv.items = itemsMap[inv.id] ?? [];
+  }
+  return invoices;
+}
+
+export async function createInvoice(data: { agentId: number; issueDate: string; dueDate: string; notes: string; items: { description: string; leadCount: number; pricePerLead: number }[] }): Promise<Invoice> {
+  await initDb();
+  // Generate invoice number: INV-YYYYMM-XXXX
+  const countRes = await turso.execute('SELECT COUNT(*) FROM invoices');
+  const count = Number(countRes.rows[0][0]) + 1;
+  const now = new Date();
+  const invoiceNumber = `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${String(count).padStart(4, '0')}`;
+  const totalAmount = data.items.reduce((s, item) => s + item.leadCount * item.pricePerLead, 0);
+  const res = await turso.execute({ sql: 'INSERT INTO invoices (invoiceNumber, agentId, status, issueDate, dueDate, notes, totalAmount) VALUES (?,?,?,?,?,?,?)', args: [invoiceNumber, data.agentId, 'draft', data.issueDate, data.dueDate, data.notes, totalAmount] });
+  const invoiceId = Number(res.lastInsertRowid);
+  for (const item of data.items) {
+    await turso.execute({ sql: 'INSERT INTO invoice_items (invoiceId, description, leadCount, pricePerLead, total) VALUES (?,?,?,?,?)', args: [invoiceId, item.description, item.leadCount, item.pricePerLead, item.leadCount * item.pricePerLead] });
+  }
+  const row = await turso.execute({ sql: `SELECT i.id, i.invoiceNumber, i.agentId, i.status, i.issueDate, i.dueDate, i.notes, i.totalAmount, u.name as agentName, i.createdAt FROM invoices i LEFT JOIN users u ON u.id = i.agentId WHERE i.id = ?`, args: [invoiceId] });
+  const invoice = rowToInvoice(row.rows[0] as any);
+  const itemsMap = await getInvoiceItems([invoiceId]);
+  invoice.items = itemsMap[invoiceId] ?? [];
+  return invoice;
+}
+
+export async function updateInvoiceStatus(id: number, status: Invoice['status']): Promise<void> {
+  await initDb();
+  await turso.execute({ sql: 'UPDATE invoices SET status = ? WHERE id = ?', args: [status, id] });
+}
+
+export async function deleteInvoice(id: number): Promise<void> {
+  await initDb();
+  await turso.execute({ sql: 'DELETE FROM invoice_items WHERE invoiceId = ?', args: [id] });
+  await turso.execute({ sql: 'DELETE FROM invoices WHERE id = ?', args: [id] });
 }

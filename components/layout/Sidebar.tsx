@@ -54,6 +54,7 @@ export default function Sidebar({ userName, userRole }: SidebarProps) {
   const moreNav = [
     { href: '/calendar',  icon: 'fas fa-calendar-alt', label: 'Calendar' },
     { href: '/deals',     icon: 'fas fa-handshake',    label: 'Deals' },
+    { href: '/invoices',  icon: 'fas fa-file-invoice-dollar', label: 'Invoices' },
     { href: '/analytics', icon: 'fas fa-chart-bar',    label: 'Analytics' },
     { href: '/reports',   icon: 'fas fa-file-alt',     label: 'Reports' },
     ...(userRole === 'admin'
@@ -96,6 +97,7 @@ export default function Sidebar({ userName, userRole }: SidebarProps) {
           <Link href="/calendar"   className={active('/calendar')   ? 'nav-item active' : 'nav-item'}><i className="fas fa-calendar-alt" /> Calendar</Link>
           <Link href="/followups"  className={active('/followups')  ? 'nav-item active' : 'nav-item'}><i className="fas fa-bell" /> Follow-ups</Link>
           <Link href="/deals"      className={active('/deals')      ? 'nav-item active' : 'nav-item'}><i className="fas fa-handshake" /> Deals</Link>
+          <Link href="/invoices"   className={active('/invoices')   ? 'nav-item active' : 'nav-item'}><i className="fas fa-file-invoice-dollar" /> Invoices</Link>
           <div className="nav-section-title">Insights</div>
           <Link href="/analytics"  className={active('/analytics')  ? 'nav-item active' : 'nav-item'}><i className="fas fa-chart-bar" /> Analytics</Link>
           <Link href="/reports"    className={active('/reports')    ? 'nav-item active' : 'nav-item'}><i className="fas fa-file-alt" /> Reports</Link>
