@@ -166,7 +166,7 @@ export default function LoginPage() {
       setCharState('success');
       setTimeout(() => router.push('/dashboard'), 1200);
     } else {
-      setError('❌ Wrong password! Dobara try karo.');
+      setError('Invalid email or password. Please try again.');
       setCharState('error');
       setShakeKey((k) => k + 1);
       setTimeout(() => setCharState(isOnPassword ? 'password' : 'idle'), 900);
@@ -218,7 +218,7 @@ export default function LoginPage() {
               color: '#6EE7B7', fontSize: 14, fontWeight: 600,
               display: 'flex', alignItems: 'center', gap: 8,
             }}>
-              ✅ Login successful! Dashboard khul raha hai...
+              ✅ Login successful! Redirecting to your dashboard...
             </div>
           )}
 
@@ -280,7 +280,7 @@ export default function LoginPage() {
               {loading
                 ? <span><i className="fas fa-spinner fa-spin" style={{ marginRight: 8 }}></i>Signing in...</span>
                 : charState === 'success'
-                ? <span><i className="fas fa-check" style={{ marginRight: 8 }}></i>Dashboard pe jaa raha hun...</span>
+                ? <span><i className="fas fa-check" style={{ marginRight: 8 }}></i>Opening Dashboard...</span>
                 : <span><i className="fas fa-sign-in-alt" style={{ marginRight: 8 }}></i>Sign In</span>
               }
             </button>
