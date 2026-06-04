@@ -153,6 +153,8 @@ export default function LoginPage() {
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState('');
   const [shakeKey, setShakeKey] = useState(0);
   const [isOnPassword, setIsOnPassword] = useState(false);
 
@@ -306,56 +308,78 @@ export default function LoginPage() {
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,46,31,0.6)', backdropFilter: 'blur(6px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div style={{ background: '#1A2E1F', border: '1px solid rgba(143,184,154,0.15)', borderRadius: 20, padding: 32, width: '100%', maxWidth: 400, boxShadow: '0 20px 50px rgba(0,0,0,0.4)' }}>
               <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                <div style={{ fontSize: 36, marginBottom: 10 }}>🔑</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#F1F5F9', marginBottom: 6 }}>Reset Password</div>
+                <div style={{ fontSize: 36, marginBottom: 10 }}>{forgotSent ? '📧' : '🔑'}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#F1F5F9', marginBottom: 6 }}>
+                  {forgotSent ? 'Request Submitted!' : 'Forgot Password?'}
+                </div>
                 <div style={{ fontSize: 12, color: 'rgba(143,184,154,0.7)', lineHeight: 1.5 }}>
                   {forgotSent
-                    ? '✅ Reset instructions sent! Check your email.'
-                    : 'Enter your email — admin will reset your password.'}
+                    ? 'Your request has been sent to the admin. You will be contacted shortly with your new password.'
+                    : 'Enter your registered email address and the admin will reset your password.'}
                 </div>
               </div>
+
               {!forgotSent ? (
                 <>
-                  <div style={{ marginBottom: 16 }}>
+                  {forgotError && (
+                    <div style={{ background: 'rgba(220,38,38,0.2)', border: '1px solid rgba(220,38,38,0.4)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, color: '#FCA5A5', fontSize: 13 }}>
+                      <i className="fas fa-exclamation-circle" style={{ marginRight: 7 }}></i>{forgotError}
+                    </div>
+                  )}
+                  <div style={{ marginBottom: 20 }}>
                     <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(143,184,154,0.8)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                       Email Address
                     </label>
                     <input
                       type="email"
                       value={forgotEmail}
-                      onChange={(e) => setForgotEmail(e.target.value)}
+                      onChange={(e) => { setForgotEmail(e.target.value); setForgotError(''); }}
                       placeholder="your@email.com"
-                      style={{ width: '100%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(143,184,154,0.2)', borderRadius: 10, padding: '11px 14px', color: '#F1F5F9', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const }}
+                      autoFocus
+                      style={{ width: '100%', background: 'rgba(255,255,255,0.07)', border: `1px solid ${forgotError ? 'rgba(220,38,38,0.5)' : 'rgba(143,184,154,0.2)'}`, borderRadius: 10, padding: '11px 14px', color: '#F1F5F9', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const }}
                     />
-                  </div>
-                  <div style={{ background: 'rgba(45,106,79,0.15)', border: '1px solid rgba(45,106,79,0.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 11, color: 'rgba(143,184,154,0.8)', lineHeight: 1.5 }}>
-                    <i className="fas fa-info-circle" style={{ marginRight: 6 }}></i>
-                    Contact your admin to reset password: <strong style={{ color: '#C2D9C8' }}>admin@crm.com</strong>
                   </div>
                   <div style={{ display: 'flex', gap: 10 }}>
                     <button
-                      onClick={() => { setShowForgot(false); setForgotEmail(''); }}
+                      onClick={() => { setShowForgot(false); setForgotEmail(''); setForgotError(''); }}
                       style={{ flex: 1, background: 'rgba(255,255,255,0.07)', color: 'rgba(143,184,154,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
                     >
                       Cancel
                     </button>
                     <button
-                      onClick={() => { if (forgotEmail) { setForgotSent(true); setTimeout(() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); }, 3000); } }}
-                      style={{ flex: 2, background: '#2D6A4F', color: 'white', border: 'none', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(45,106,79,0.4)' }}
+                      disabled={forgotLoading || !forgotEmail}
+                      onClick={async () => {
+                        if (!forgotEmail) return;
+                        setForgotLoading(true); setForgotError('');
+                        try {
+                          const res = await fetch('/api/password-reset', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: forgotEmail }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) { setForgotError(data.error || 'Something went wrong.'); }
+                          else { setForgotSent(true); }
+                        } catch { setForgotError('Network error. Please try again.'); }
+                        finally { setForgotLoading(false); }
+                      }}
+                      style={{ flex: 2, background: forgotLoading ? '#1B4332' : '#2D6A4F', color: 'white', border: 'none', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: forgotLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(45,106,79,0.4)', opacity: !forgotEmail ? 0.6 : 1 }}
                     >
-                      <i className="fas fa-paper-plane" style={{ marginRight: 8 }}></i>Send Request
+                      {forgotLoading
+                        ? <><i className="fas fa-spinner fa-spin" style={{ marginRight: 8 }}></i>Sending...</>
+                        : <><i className="fas fa-paper-plane" style={{ marginRight: 8 }}></i>Send Request</>}
                     </button>
                   </div>
                 </>
               ) : (
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 48, marginBottom: 12 }}>📧</div>
-                  <div style={{ fontSize: 13, color: 'rgba(143,184,154,0.8)', marginBottom: 20 }}>
-                    Request sent for <strong style={{ color: '#C2D9C8' }}>{forgotEmail}</strong>
+                  <div style={{ background: 'rgba(45,106,79,0.2)', border: '1px solid rgba(45,106,79,0.4)', borderRadius: 12, padding: '14px 18px', marginBottom: 20, fontSize: 13, color: 'rgba(143,184,154,0.9)', lineHeight: 1.6 }}>
+                    Request submitted for <strong style={{ color: '#C2D9C8' }}>{forgotEmail}</strong>.<br/>
+                    The admin will reset your password and inform you shortly.
                   </div>
                   <button
-                    onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); }}
-                    style={{ background: '#2D6A4F', color: 'white', border: 'none', borderRadius: 10, padding: '10px 24px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                    onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setForgotError(''); }}
+                    style={{ background: '#2D6A4F', color: 'white', border: 'none', borderRadius: 10, padding: '10px 28px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
                   >
                     Back to Login
                   </button>

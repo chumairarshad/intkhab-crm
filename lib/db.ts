@@ -196,6 +196,12 @@ export async function initDb() {
       pricePerLead REAL NOT NULL DEFAULT 0,
       total        REAL NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS password_reset_requests (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      email     TEXT NOT NULL,
+      status    TEXT NOT NULL DEFAULT 'pending',
+      createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Migrate: add audioUrl column if it doesn't exist yet
@@ -610,4 +616,48 @@ export async function deleteInvoice(id: number): Promise<void> {
   await initDb();
   await turso.execute({ sql: 'DELETE FROM invoice_items WHERE invoiceId = ?', args: [id] });
   await turso.execute({ sql: 'DELETE FROM invoices WHERE id = ?', args: [id] });
+}
+
+export async function updateUserPassword(userId: number, newPassword: string): Promise<void> {
+  await initDb();
+  const hash = bcrypt.hashSync(newPassword, 10);
+  await turso.execute({ sql: 'UPDATE users SET password = ? WHERE id = ?', args: [hash, userId] });
+}
+
+// ── Password Reset Request Helpers ────────────────────────────────────────
+
+export async function createPasswordResetRequest(email: string): Promise<void> {
+  await initDb();
+  // Check user exists
+  const user = await getUserByEmail(email);
+  if (!user) throw new Error('No account found with this email address.');
+  // Avoid duplicate pending requests
+  await turso.execute({ sql: `DELETE FROM password_reset_requests WHERE email = ? AND status = 'pending'`, args: [email] });
+  await turso.execute({ sql: `INSERT INTO password_reset_requests (email) VALUES (?)`, args: [email] });
+}
+
+export async function getPasswordResetRequests(): Promise<{ id: number; email: string; name: string; status: string; createdAt: string }[]> {
+  await initDb();
+  const res = await turso.execute(`
+    SELECT r.id, r.email, u.name, r.status, r.createdAt
+    FROM password_reset_requests r
+    LEFT JOIN users u ON u.email = r.email
+    WHERE r.status = 'pending'
+    ORDER BY r.createdAt DESC
+  `);
+  return res.rows.map((r: any) => ({
+    id: Number(r[0]), email: String(r[1]), name: String(r[2] || r[1]),
+    status: String(r[3]), createdAt: String(r[4]),
+  }));
+}
+
+export async function resolvePasswordResetRequest(id: number, userId: number, newPassword: string): Promise<void> {
+  await initDb();
+  await updateUserPassword(userId, newPassword);
+  await turso.execute({ sql: `UPDATE password_reset_requests SET status = 'resolved' WHERE id = ?`, args: [id] });
+}
+
+export async function dismissPasswordResetRequest(id: number): Promise<void> {
+  await initDb();
+  await turso.execute({ sql: `UPDATE password_reset_requests SET status = 'dismissed' WHERE id = ?`, args: [id] });
 }

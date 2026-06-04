@@ -4,9 +4,9 @@ import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 
-interface SidebarProps { userName: string; userRole: string; }
+interface SidebarProps { userName: string; userRole: string; resetRequestCount?: number; }
 
-export default function Sidebar({ userName, userRole }: SidebarProps) {
+export default function Sidebar({ userName, userRole, resetRequestCount = 0 }: SidebarProps) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const [dark, setDark] = useState(false);
@@ -104,7 +104,14 @@ export default function Sidebar({ userName, userRole }: SidebarProps) {
           {userRole === 'admin' && (
             <>
               <div className="nav-section-title">Admin</div>
-              <Link href="/users" className={active('/users') ? 'nav-item active' : 'nav-item'}><i className="fas fa-users-cog" /> User Management</Link>
+              <Link href="/users" className={active('/users') ? 'nav-item active' : 'nav-item'} style={{ position: 'relative' }}>
+                <i className="fas fa-users-cog" /> User Management
+                {resetRequestCount > 0 && (
+                  <span style={{ position: 'absolute', top: 6, right: 10, background: '#EF4444', color: 'white', fontSize: 10, fontWeight: 800, borderRadius: 20, minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>
+                    {resetRequestCount}
+                  </span>
+                )}
+              </Link>
             </>
           )}
         </nav>

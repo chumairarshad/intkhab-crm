@@ -1,21 +1,35 @@
 'use client';
 import { useState } from 'react';
 
+interface ResetRequest {
+  id: number; email: string; name: string; status: string; createdAt: string;
+}
+
 interface User {
   id: number; name: string; email: string; role: string;
   createdAt: string; propertiesCount: number; leadsCount: number;
 }
 
-export default function UsersClient({ users: initial, currentUserId }: { users: User[]; currentUserId?: number }) {
+export default function UsersClient({ users: initial, currentUserId, resetRequests: initialReqs = [] }: { users: User[]; currentUserId?: number; resetRequests?: ResetRequest[] }) {
   const [users, setUsers] = useState(initial);
   const [showModal, setShowModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<User | null>(null);
+  const [resetUser, setResetUser] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [showNewPw, setShowNewPw] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
-  const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 3000); };
+  const [resetRequests, setResetRequests] = useState<ResetRequest[]>(initialReqs);
+  const [resolveReq, setResolveReq] = useState<ResetRequest | null>(null);
+  const [reqNewPw, setReqNewPw] = useState('');
+  const [showReqPw, setShowReqPw] = useState(false);
+  const [reqLoading, setReqLoading] = useState(false);
+
+  const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 4000); };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -47,6 +61,50 @@ export default function UsersClient({ users: initial, currentUserId }: { users: 
     flash('User removed successfully.');
   };
 
+  const handleRequestResolve = async () => {
+    if (!resolveReq || reqNewPw.length < 6) return;
+    setReqLoading(true);
+    const res = await fetch('/api/password-reset', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: resolveReq.id, action: 'resolve', email: resolveReq.email, newPassword: reqNewPw }),
+    });
+    const data = await res.json();
+    setReqLoading(false);
+    if (!res.ok) { flash(data.error || 'Error'); return; }
+    setResetRequests(resetRequests.filter(r => r.id !== resolveReq.id));
+    setResolveReq(null); setReqNewPw('');
+    flash(`Password for ${resolveReq.name} has been reset and request resolved.`);
+  };
+
+  const handleRequestDismiss = async (req: ResetRequest) => {
+    const res = await fetch('/api/password-reset', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: req.id, action: 'dismiss' }),
+    });
+    if (res.ok) {
+      setResetRequests(resetRequests.filter(r => r.id !== req.id));
+      flash('Request dismissed.');
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetUser || newPassword.length < 6) return;
+    setResetLoading(true);
+    const res = await fetch('/api/users/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: resetUser.id, newPassword }),
+    });
+    const data = await res.json();
+    setResetLoading(false);
+    if (!res.ok) { flash(data.error || 'Could not reset password'); return; }
+    setResetUser(null);
+    setNewPassword('');
+    flash(`Password for ${resetUser.name} has been reset successfully.`);
+  };
+
   return (
     <>
       <div className="topbar" style={{ paddingLeft: 60 }}>
@@ -65,6 +123,51 @@ export default function UsersClient({ users: initial, currentUserId }: { users: 
         {msg && (
           <div style={{ background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid #A7F3D0', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 13 }}>
             <i className="fas fa-check-circle" style={{ marginRight: 8 }}></i>{msg}
+          </div>
+        )}
+
+        {/* ── Password Reset Requests Panel ── */}
+        {resetRequests.length > 0 && (
+          <div style={{ background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <i className="fas fa-key" style={{ color: '#D97706', fontSize: 16 }}></i>
+              <span style={{ fontWeight: 800, fontSize: 14, color: '#92400E' }}>
+                Password Reset Requests ({resetRequests.length})
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {resetRequests.map(req => (
+                <div key={req.id} style={{ background: 'white', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 36, height: 36, background: '#F59E0B', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'white', fontSize: 14, flexShrink: 0 }}>
+                      {req.name[0]}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#1E293B' }}>{req.name}</div>
+                      <div style={{ fontSize: 11, color: '#64748B' }}>{req.email}</div>
+                      <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>
+                        {new Date(req.createdAt).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => { setResolveReq(req); setReqNewPw(''); setShowReqPw(false); }}
+                    >
+                      <i className="fas fa-key"></i> Reset Password
+                    </button>
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={() => handleRequestDismiss(req)}
+                      title="Dismiss request"
+                    >
+                      <i className="fas fa-times"></i>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -105,18 +208,28 @@ export default function UsersClient({ users: initial, currentUserId }: { users: 
                     <td style={{ fontWeight: 700 }}>{u.leadsCount}</td>
                     <td style={{ color: 'var(--text3)', fontSize: 12 }}>{new Date(u.createdAt).toLocaleDateString()}</td>
                     <td>
-                      {u.id !== currentUserId ? (
+                      <div style={{ display: 'flex', gap: 6 }}>
                         <button
-                          className="btn btn-danger btn-sm"
-                          title="Remove user"
-                          onClick={() => setConfirmDelete(u)}
+                          className="btn btn-outline btn-sm"
+                          title="Reset Password"
+                          onClick={() => { setResetUser(u); setNewPassword(''); setShowNewPw(false); }}
                         >
-                          <i className="fas fa-user-minus"></i>
-                          <span className="hide-xs" style={{ marginLeft: 4 }}>Remove</span>
+                          <i className="fas fa-key"></i>
+                          <span className="hide-xs" style={{ marginLeft: 4 }}>Reset PW</span>
                         </button>
-                      ) : (
-                        <span style={{ fontSize: 11, color: 'var(--text4)' }}>You</span>
-                      )}
+                        {u.id !== currentUserId ? (
+                          <button
+                            className="btn btn-danger btn-sm"
+                            title="Remove user"
+                            onClick={() => setConfirmDelete(u)}
+                          >
+                            <i className="fas fa-user-minus"></i>
+                            <span className="hide-xs" style={{ marginLeft: 4 }}>Remove</span>
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: 11, color: 'var(--text4)', padding: '4px 8px' }}>You</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -150,21 +263,29 @@ export default function UsersClient({ users: initial, currentUserId }: { users: 
                   </div>
                 </div>
               </div>
-              {u.id !== currentUserId && (
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignSelf: 'center' }}>
                 <button
-                  className="btn btn-danger btn-sm"
-                  style={{ flexShrink: 0, alignSelf: 'center' }}
-                  onClick={() => setConfirmDelete(u)}
+                  className="btn btn-outline btn-sm"
+                  title="Reset Password"
+                  onClick={() => { setResetUser(u); setNewPassword(''); setShowNewPw(false); }}
                 >
-                  <i className="fas fa-user-minus"></i>
+                  <i className="fas fa-key"></i>
                 </button>
-              )}
+                {u.id !== currentUserId && (
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={() => setConfirmDelete(u)}
+                  >
+                    <i className="fas fa-user-minus"></i>
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Add User Modal */}
+      {/* ── Add User Modal ── */}
       {showModal && (
         <div className="modal-backdrop" onClick={() => setShowModal(false)}>
           <div className="modal" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
@@ -208,7 +329,67 @@ export default function UsersClient({ users: initial, currentUserId }: { users: 
         </div>
       )}
 
-      {/* Confirm Delete Modal */}
+      {/* ── Reset Password Modal ── */}
+      {resetUser && (
+        <div className="modal-backdrop" onClick={() => setResetUser(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">
+                <i className="fas fa-key" style={{ marginRight: 8, color: 'var(--accent)' }}></i>Reset Password
+              </div>
+              <button className="modal-close" onClick={() => setResetUser(null)}>×</button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg)', borderRadius: 10, padding: '12px 14px', marginBottom: 20 }}>
+              <div style={{ width: 40, height: 40, background: 'var(--accent)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, color: 'white', flexShrink: 0 }}>
+                {resetUser.name[0]}
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{resetUser.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)' }}>{resetUser.email}</div>
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">New Password</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="form-input"
+                  type={showNewPw ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Min 6 characters"
+                  minLength={6}
+                  style={{ paddingRight: 42 }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPw(!showNewPw)}
+                  style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 14 }}
+                >
+                  <i className={`fas ${showNewPw ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                </button>
+              </div>
+              {newPassword.length > 0 && newPassword.length < 6 && (
+                <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 5 }}>Password must be at least 6 characters.</div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button className="btn btn-outline" onClick={() => setResetUser(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                onClick={handleResetPassword}
+                disabled={resetLoading || newPassword.length < 6}
+              >
+                {resetLoading
+                  ? <><i className="fas fa-spinner fa-spin"></i> Saving...</>
+                  : <><i className="fas fa-check"></i> Save New Password</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirm Delete Modal ── */}
       {confirmDelete && (
         <div className="modal-backdrop" onClick={() => setConfirmDelete(null)}>
           <div className="modal" style={{ maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
@@ -229,7 +410,7 @@ export default function UsersClient({ users: initial, currentUserId }: { users: 
                 </div>
               </div>
               <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
-                Kya aap <strong>{confirmDelete.name}</strong> ko team se remove karna chahte hain? Ye action wapis nahi hoga.
+                Are you sure you want to remove <strong>{confirmDelete.name}</strong> from the team? This action cannot be undone.
               </p>
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -238,6 +419,66 @@ export default function UsersClient({ users: initial, currentUserId }: { users: 
                 {deleteLoading
                   ? <><i className="fas fa-spinner fa-spin"></i> Removing...</>
                   : <><i className="fas fa-user-minus"></i> Yes, Remove</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Resolve Reset Request Modal ── */}
+      {resolveReq && (
+        <div className="modal-backdrop" onClick={() => setResolveReq(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">
+                <i className="fas fa-key" style={{ marginRight: 8, color: '#F59E0B' }}></i>
+                Reset Password for Agent
+              </div>
+              <button className="modal-close" onClick={() => setResolveReq(null)}>×</button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#FEF3C7', borderRadius: 10, padding: '12px 14px', marginBottom: 20 }}>
+              <div style={{ width: 40, height: 40, background: '#F59E0B', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, color: 'white', flexShrink: 0 }}>
+                {resolveReq.name[0]}
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{resolveReq.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)' }}>{resolveReq.email}</div>
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Set New Password</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="form-input"
+                  type={showReqPw ? 'text' : 'password'}
+                  value={reqNewPw}
+                  onChange={(e) => setReqNewPw(e.target.value)}
+                  placeholder="Min 6 characters"
+                  minLength={6}
+                  style={{ paddingRight: 42 }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowReqPw(!showReqPw)}
+                  style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 14 }}
+                >
+                  <i className={`fas ${showReqPw ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                </button>
+              </div>
+              {reqNewPw.length > 0 && reqNewPw.length < 6 && (
+                <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 5 }}>Password must be at least 6 characters.</div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button className="btn btn-outline" onClick={() => setResolveReq(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                onClick={handleRequestResolve}
+                disabled={reqLoading || reqNewPw.length < 6}
+              >
+                {reqLoading
+                  ? <><i className="fas fa-spinner fa-spin"></i> Saving...</>
+                  : <><i className="fas fa-check"></i> Reset & Resolve</>}
               </button>
             </div>
           </div>

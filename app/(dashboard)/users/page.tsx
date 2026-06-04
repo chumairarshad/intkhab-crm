@@ -1,5 +1,5 @@
 import { auth } from '@/lib/auth';
-import { getUsers, getProperties, getLeads } from '@/lib/db';
+import { getUsers, getProperties, getLeads, getPasswordResetRequests } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import UsersClient from './UsersClient';
 
@@ -8,10 +8,11 @@ export default async function UsersPage() {
   const user = session?.user as any;
   if (user?.role !== 'admin') redirect('/dashboard');
 
-  const [allUsers, allProperties, allLeads] = await Promise.all([
+  const [allUsers, allProperties, allLeads, resetRequests] = await Promise.all([
     getUsers(),
     getProperties(true, 0),
     getLeads(true, 0),
+    getPasswordResetRequests(),
   ]);
 
   const users = allUsers.map((u) => ({
@@ -21,5 +22,5 @@ export default async function UsersPage() {
     leadsCount: allLeads.filter((l) => l.agentId === u.id).length,
   }));
 
-  return <UsersClient users={users} currentUserId={user?.id} />;
+  return <UsersClient users={users} currentUserId={user?.id} resetRequests={resetRequests} />;
 }
