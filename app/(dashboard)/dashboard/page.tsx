@@ -19,7 +19,7 @@ export default async function DashboardPage() {
   ]);
 
   // For agents progress we still need full leads (only 500 but enough for progress table)
-  const allLeadsForAgents = isAdmin ? await getLeads(true, 0) : [];
+  const allLeadsForAgents = isAdmin ? await getLeads(true, 0, 50000) : [];
 
   const agentsProgress = isAdmin ? agentList.map((a: any) => ({
     id: a.id, name: a.name,

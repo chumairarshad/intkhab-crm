@@ -630,7 +630,7 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
   const loadMoreLeads = async () => {
     setLoadingMore(true);
     try {
-      const res = await fetch(`/api/leads?offset=${leads.length}&limit=500`);
+      const res = await fetch(`/api/leads?offset=${leads.length}&limit=50000`);
       const data = await res.json();
       const newLeads = data.leads as Lead[];
       setLeads((prev) => [...prev, ...newLeads]);

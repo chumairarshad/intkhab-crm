@@ -386,7 +386,7 @@ export async function getLeadsCount(isAdmin: boolean, userId: number): Promise<n
   return Number(rows[0].count);
 }
 
-export async function getLeads(isAdmin: boolean, userId: number, limit = 500, offset = 0): Promise<Lead[]> {
+export async function getLeads(isAdmin: boolean, userId: number, limit = 50000, offset = 0): Promise<Lead[]> {
   await initDb();
   const rows = isAdmin
     ? await sql`SELECT * FROM leads ORDER BY "createdAt" DESC LIMIT ${limit} OFFSET ${offset}`
