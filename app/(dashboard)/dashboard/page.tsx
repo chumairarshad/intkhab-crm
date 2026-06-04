@@ -70,6 +70,9 @@ export default async function DashboardPage() {
     hotLeads,
   };
 
+  const maleLeads = leads.filter((l) => l.gender === 'Male').length;
+  const femaleLeads = leads.filter((l) => l.gender === 'Female').length;
+
   const stages: [string, string][] = [
     ['New', '#1A56DB'], ['Contacted', '#0284C7'], ['Viewing', '#D97706'],
     ['Negotiating', '#EA580C'], ['Closed', '#059669'], ['Lost', '#6B7280'],
@@ -117,6 +120,22 @@ export default async function DashboardPage() {
             <div className="stat-value">{stageCounts['Closed'] || 0}</div>
             <div className="stat-label">Closed Deals</div>
             <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 8 }}>↑ {stageCounts['Negotiating'] || 0} negotiating</div>
+          </div>
+          <div className="stat-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div className="stat-icon blue"><i className="fas fa-male"></i></div>
+            </div>
+            <div className="stat-value">{maleLeads}</div>
+            <div className="stat-label">Male Leads</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>{leads.length > 0 ? Math.round((maleLeads / leads.length) * 100) : 0}% of total</div>
+          </div>
+          <div className="stat-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div className="stat-icon red"><i className="fas fa-female"></i></div>
+            </div>
+            <div className="stat-value">{femaleLeads}</div>
+            <div className="stat-label">Female Leads</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>{leads.length > 0 ? Math.round((femaleLeads / leads.length) * 100) : 0}% of total</div>
           </div>
         </div>
 
