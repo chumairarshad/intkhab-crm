@@ -231,17 +231,27 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
       const text = await file.text();
       const rows = parseCSV(text);
       if (!rows.length) { flash('⚠️ CSV is empty or invalid!'); return; }
-      const res = await fetch('/api/leads/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows }) });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        flash(`❌ Import failed: ${data.error || 'Server error'}`);
-        return;
+
+      const CHUNK = 500;
+      let total = 0;
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const chunk = rows.slice(i, i + CHUNK);
+        const res = await fetch('/api/leads/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows: chunk }) });
+        if (!res.ok) {
+          const text = await res.text();
+          flash(`❌ Import failed: ${text.slice(0, 150)}`);
+          return;
+        }
+        const data = await res.json();
+        if (data.error) { flash(`❌ Import failed: ${data.error}`); return; }
+        total += data.count;
       }
-      if (data.count === 0) {
+
+      if (total === 0) {
         flash('⚠️ No valid leads in CSV. Make sure the "name" column is filled.');
         return;
       }
-      flash(`✅ ${data.count} lead${data.count !== 1 ? 's' : ''} imported successfully!`);
+      flash(`✅ ${total} lead${total !== 1 ? 's' : ''} imported successfully!`);
       router.refresh();
     } catch (err: any) {
       flash(`❌ Import error: ${err.message}`);
@@ -265,7 +275,6 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
       const sheet = workbook.Sheets[sheetName];
       const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
       if (!rawRows.length) { flash('⚠️ XLSX file is empty!'); return; }
-      // Normalize keys to lowercase
       const rows = rawRows.map((r) => {
         const normalized: Record<string, string> = {};
         for (const key of Object.keys(r)) {
@@ -273,15 +282,28 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
         }
         return normalized;
       });
-      const res = await fetch('/api/leads/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) { flash(`❌ Import failed: ${data.error || 'Server error'}`); return; }
-      if (data.count === 0) { flash('⚠️ No valid leads found. Make sure the "name" column is filled.'); return; }
-      flash(`✅ ${data.count} lead${data.count !== 1 ? 's' : ''} imported from XLSX successfully!`);
+
+      const CHUNK = 500;
+      let total = 0;
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const chunk = rows.slice(i, i + CHUNK);
+        const res = await fetch('/api/leads/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows: chunk }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          flash(`❌ Import failed: ${text.slice(0, 150)}`);
+          return;
+        }
+        const data = await res.json();
+        if (data.error) { flash(`❌ Import failed: ${data.error}`); return; }
+        total += data.count;
+      }
+
+      if (total === 0) { flash('⚠️ No valid leads found. Make sure the "name" column is filled.'); return; }
+      flash(`✅ ${total} lead${total !== 1 ? 's' : ''} imported from XLSX successfully!`);
       router.refresh();
     } catch (err: any) {
       flash(`❌ XLSX error: ${err.message}`);
