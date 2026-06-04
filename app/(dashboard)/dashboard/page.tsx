@@ -145,6 +145,22 @@ export default async function DashboardPage() {
               <span className="card-title"><i className="fas fa-filter" style={{ color: '#1A56DB', marginRight: 8 }}></i>Lead Pipeline</span>
               <Link href="/kanban" className="btn btn-outline btn-sm">View Kanban</Link>
             </div>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 18, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ flex: 1, background: '#D0DEF5', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <i className="fas fa-male" style={{ fontSize: 20, color: 'var(--accent)' }}></i>
+                <div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)', lineHeight: 1 }}>{maleLeads}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Male · {leads.length > 0 ? Math.round((maleLeads / leads.length) * 100) : 0}%</div>
+                </div>
+              </div>
+              <div style={{ flex: 1, background: '#FFE4EC', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <i className="fas fa-female" style={{ fontSize: 20, color: '#C1121F' }}></i>
+                <div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: '#C1121F', lineHeight: 1 }}>{femaleLeads}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Female · {leads.length > 0 ? Math.round((femaleLeads / leads.length) * 100) : 0}%</div>
+                </div>
+              </div>
+            </div>
             {stages.map(([stage, color]) => {
               const count = stageCounts[stage] || 0;
               const pct = leads.length > 0 ? Math.round((count / leads.length) * 100) : 0;
