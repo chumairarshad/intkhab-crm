@@ -9,7 +9,7 @@ export default async function LeadsPage() {
   const userId = parseInt(user?.id || '0');
 
   const [leads, allUsers, allProperties] = await Promise.all([
-    getLeads(isAdmin, userId),
+    getLeads(isAdmin, userId, 500, 0),
     getUsers(),
     getProperties(true, 0),
   ]);

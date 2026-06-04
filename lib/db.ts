@@ -368,17 +368,20 @@ export async function deleteProperty(id: number) {
   await turso.execute({ sql: 'DELETE FROM properties WHERE id = ?', args: [id] });
 }
 
-export async function getLeads(isAdmin: boolean, userId: number): Promise<Lead[]> {
+export async function getLeads(isAdmin: boolean, userId: number, limit = 500, offset = 0): Promise<Lead[]> {
   await initDb();
   const res = isAdmin
-    ? await turso.execute('SELECT * FROM leads ORDER BY createdAt DESC')
-    : await turso.execute({ sql: 'SELECT * FROM leads WHERE agentId = ? ORDER BY createdAt DESC', args: [userId] });
+    ? await turso.execute({ sql: 'SELECT * FROM leads ORDER BY createdAt DESC LIMIT ? OFFSET ?', args: [limit, offset] })
+    : await turso.execute({ sql: 'SELECT * FROM leads WHERE agentId = ? ORDER BY createdAt DESC LIMIT ? OFFSET ?', args: [userId, limit, offset] });
   const leads = res.rows.map((r) => rowToLead(r as any));
   if (leads.length > 0) {
     const leadIds = leads.map((l) => l.id);
-    const actRes = await turso.execute({ sql: `SELECT * FROM lead_activities WHERE leadId IN (${leadIds.map(() => '?').join(',')}) ORDER BY createdAt ASC`, args: leadIds });
     const actMap: Record<number, LeadActivity[]> = {};
-    for (const r of actRes.rows) { const a = rowToActivity(r as any); if (!actMap[a.leadId]) actMap[a.leadId] = []; actMap[a.leadId].push(a); }
+    for (let i = 0; i < leadIds.length; i += 100) {
+      const chunk = leadIds.slice(i, i + 100);
+      const actRes = await turso.execute({ sql: `SELECT * FROM lead_activities WHERE leadId IN (${chunk.map(() => '?').join(',')}) ORDER BY createdAt ASC`, args: chunk });
+      for (const r of actRes.rows) { const a = rowToActivity(r as any); if (!actMap[a.leadId]) actMap[a.leadId] = []; actMap[a.leadId].push(a); }
+    }
     for (const lead of leads) lead.activities = actMap[lead.id] ?? [];
   }
   return leads;

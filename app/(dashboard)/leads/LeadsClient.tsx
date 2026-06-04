@@ -254,8 +254,8 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
         flash('⚠️ No valid leads in CSV. Make sure the "name" column is filled.');
         return;
       }
-      flash(`✅ ${total} lead${total !== 1 ? 's' : ''} imported successfully!`);
-      router.refresh();
+      flash(`✅ ${total} lead${total !== 1 ? 's' : ''} imported successfully! Reloading page...`);
+      setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
       flash(`❌ Import error: ${err.message}`);
     } finally {
@@ -309,8 +309,8 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
       }
 
       if (total === 0) { flash('⚠️ No valid leads found. Make sure the "name" column is filled.'); return; }
-      flash(`✅ ${total} lead${total !== 1 ? 's' : ''} imported from XLSX successfully!`);
-      router.refresh();
+      flash(`✅ ${total} lead${total !== 1 ? 's' : ''} imported from XLSX successfully! Reloading page...`);
+      setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
       flash(`❌ XLSX error: ${err.message}`);
     } finally {
