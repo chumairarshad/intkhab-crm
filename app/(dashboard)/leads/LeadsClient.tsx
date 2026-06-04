@@ -133,7 +133,7 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
   const safePage = Math.min(page, totalPages);
   const paginated = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
-  const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 4000); };
+  const flash = (m: string, persist = false) => { setMsg(m); if (!persist) setTimeout(() => setMsg(''), 4000); };
   const openAdd = () => {
     setEditLead(null);
     setUseCustomContact(false);
@@ -232,9 +232,12 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
       const rows = parseCSV(text);
       if (!rows.length) { flash('⚠️ CSV is empty or invalid!'); return; }
 
-      const CHUNK = 500;
+      const CHUNK = 2000;
       let total = 0;
+      const totalChunks = Math.ceil(rows.length / CHUNK);
       for (let i = 0; i < rows.length; i += CHUNK) {
+        const chunkIndex = Math.floor(i / CHUNK) + 1;
+        flash(`⏳ Importing... ${total} / ${rows.length} leads (batch ${chunkIndex}/${totalChunks})`, true);
         const chunk = rows.slice(i, i + CHUNK);
         const res = await fetch('/api/leads/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows: chunk }) });
         if (!res.ok) {
@@ -283,9 +286,12 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
         return normalized;
       });
 
-      const CHUNK = 500;
+      const CHUNK = 2000;
       let total = 0;
+      const totalChunks = Math.ceil(rows.length / CHUNK);
       for (let i = 0; i < rows.length; i += CHUNK) {
+        const chunkIndex = Math.floor(i / CHUNK) + 1;
+        flash(`⏳ Importing... ${total} / ${rows.length} leads (batch ${chunkIndex}/${totalChunks})`, true);
         const chunk = rows.slice(i, i + CHUNK);
         const res = await fetch('/api/leads/bulk', {
           method: 'POST',
