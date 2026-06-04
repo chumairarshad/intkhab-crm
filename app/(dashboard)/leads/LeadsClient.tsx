@@ -79,6 +79,7 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
   const [loadingMore, setLoadingMore] = useState(false);
   const [allLoaded, setAllLoaded] = useState(false);
   const csvRef = useRef<HTMLInputElement>(null);
+  const genderCsvRef = useRef<HTMLInputElement>(null);
 
   // ── Voice Recording ────────────────────────────────────────────
   const [isRecording, setIsRecording] = useState(false);
@@ -225,6 +226,64 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
     a.download = 'leads-template.csv'; a.click();
   };
 
+  const updateGenderFromRows = async (rows: Record<string, string>[]) => {
+    const genderRows = rows
+      .filter((r) => r.name?.trim() && r.gender?.trim())
+      .map((r) => ({ name: r.name.trim(), gender: r.gender.trim() }));
+    if (!genderRows.length) return 0;
+
+    const CHUNK = 1000;
+    let updated = 0;
+    for (let i = 0; i < genderRows.length; i += CHUNK) {
+      const chunk = genderRows.slice(i, i + CHUNK);
+      try {
+        const res = await fetch('/api/leads/bulk-gender', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows: chunk }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          updated += data.updated || 0;
+        }
+      } catch {}
+    }
+    return updated;
+  };
+
+  const handleGenderOnlyUpdate = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvLoading(true);
+    try {
+      let rows: Record<string, string>[] = [];
+      if (file.name.endsWith('.csv')) {
+        const text = await file.text();
+        rows = parseCSV(text);
+      } else {
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        rows = rawRows.map((r) => {
+          const normalized: Record<string, string> = {};
+          for (const key of Object.keys(r)) normalized[key.toLowerCase().trim()] = String(r[key] ?? '').trim();
+          return normalized;
+        });
+      }
+      if (!rows.length) { flash('⚠️ File is empty!'); return; }
+      const total = rows.length;
+      flash(`⏳ Updating gender for ${total.toLocaleString()} leads...`, true);
+      const genderUpdated = await updateGenderFromRows(rows);
+      flash(`✅ Gender updated for ${genderUpdated.toLocaleString()} leads out of ${total.toLocaleString()}!`);
+    } catch (err: any) {
+      flash(`❌ Error: ${err.message}`);
+    } finally {
+      setCsvLoading(false);
+      if (genderCsvRef.current) genderCsvRef.current.value = '';
+    }
+  };
+
   const handleCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -256,7 +315,9 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
         flash('⚠️ No valid leads in CSV. Make sure the "name" column is filled.');
         return;
       }
-      flash(`✅ ${total} lead${total !== 1 ? 's' : ''} imported successfully! Reloading page...`);
+      flash(`✅ ${total} leads imported! Now updating gender... `, true);
+      const genderUpdated = await updateGenderFromRows(rows);
+      flash(`✅ ${total} leads imported, ${genderUpdated} gender records updated! Reloading...`);
       setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
       flash(`❌ Import error: ${err.message}`);
@@ -311,7 +372,9 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
       }
 
       if (total === 0) { flash('⚠️ No valid leads found. Make sure the "name" column is filled.'); return; }
-      flash(`✅ ${total} lead${total !== 1 ? 's' : ''} imported from XLSX successfully! Reloading page...`);
+      flash(`✅ ${total} leads imported! Now updating gender...`, true);
+      const genderUpdated = await updateGenderFromRows(rows);
+      flash(`✅ ${total} leads imported, ${genderUpdated} gender records updated! Reloading...`);
       setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
       flash(`❌ XLSX error: ${err.message}`);
@@ -635,6 +698,7 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
         </div>
         <div className="topbar-actions">
           <input ref={csvRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleCSV} />
+          <input ref={genderCsvRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: 'none' }} onChange={handleGenderOnlyUpdate} />
           <input ref={xlsxRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleXLSX} />
           {isAdmin && (
             <button className={`btn ${showAgentView ? 'btn-primary' : 'btn-outline'}`} onClick={() => setShowAgentView((v) => !v)}>
@@ -678,6 +742,10 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
               <button onClick={() => { xlsxRef.current?.click(); const el = document.getElementById('upload-dropdown'); if(el) el.style.display='none'; }}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit', borderTop: '1px solid var(--border)' }}>
                 <i className="fas fa-file-excel" style={{ color: '#1D6F42', width: 16 }}></i> Upload XLSX
+              </button>
+              <button onClick={() => { genderCsvRef.current?.click(); const el = document.getElementById('upload-dropdown'); if(el) el.style.display='none'; }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit', borderTop: '1px solid var(--border)' }}>
+                <i className="fas fa-venus-mars" style={{ color: '#8B5CF6', width: 16 }}></i> Update Gender Only
               </button>
             </div>
           </div>
