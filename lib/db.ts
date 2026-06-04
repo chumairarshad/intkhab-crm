@@ -348,19 +348,28 @@ export async function createProperty(data: Omit<Property, 'id'|'createdAt'>): Pr
 
 export async function updateProperty(id: number, data: any): Promise<Property | null> {
   await initDb();
-  const fields: string[] = []; const args: any[] = [];
-  if (data.title !== undefined) { fields.push('title'); args.push(data.title); }
-  if (data.address !== undefined) { fields.push('address'); args.push(data.address); }
-  if (data.price !== undefined) { fields.push('price'); args.push(parseFloat(data.price)); }
-  if (data.property_type !== undefined) { fields.push('"propertyType"'); args.push(data.property_type); }
-  if (data.bedrooms !== undefined) { fields.push('bedrooms'); args.push(parseInt(data.bedrooms)); }
-  if (data.bathrooms !== undefined) { fields.push('bathrooms'); args.push(parseInt(data.bathrooms)); }
-  if (data.area !== undefined) { fields.push('area'); args.push(parseFloat(data.area)); }
-  if (data.status !== undefined) { fields.push('status'); args.push(data.status); }
-  if (data.description !== undefined) { fields.push('description'); args.push(data.description); }
-  if (!fields.length) return null;
-  const setClause = fields.map((f, i) => `${f} = $${i + 1}`).join(', ');
-  const rows = await sql(`UPDATE properties SET ${setClause} WHERE id = $${args.length + 1} RETURNING *`, [...args, id]);
+  // Fetch existing first
+  const existing = await sql`SELECT * FROM properties WHERE id = ${id}`;
+  if (!existing.length) return null;
+  const e = existing[0];
+
+  const title       = data.title !== undefined       ? data.title                    : e.title;
+  const address     = data.address !== undefined     ? data.address                  : e.address;
+  const price       = data.price !== undefined       ? parseFloat(data.price)        : Number(e.price);
+  const propType    = data.property_type !== undefined ? data.property_type          : e.propertyType;
+  const bedrooms    = data.bedrooms !== undefined    ? parseInt(data.bedrooms)       : Number(e.bedrooms);
+  const bathrooms   = data.bathrooms !== undefined   ? parseInt(data.bathrooms)      : Number(e.bathrooms);
+  const area        = data.area !== undefined        ? parseFloat(data.area)         : Number(e.area);
+  const status      = data.status !== undefined      ? data.status                   : e.status;
+  const description = data.description !== undefined ? data.description              : e.description;
+
+  const rows = await sql`
+    UPDATE properties
+    SET title=${title}, address=${address}, price=${price}, "propertyType"=${propType},
+        bedrooms=${bedrooms}, bathrooms=${bathrooms}, area=${area}, status=${status}, description=${description}
+    WHERE id=${id}
+    RETURNING *
+  `;
   return rows.length ? rowToProperty(rows[0]) : null;
 }
 
@@ -440,8 +449,32 @@ export async function updateLead(id: number, data: any): Promise<Lead | null> {
   if (data.agent_id !== undefined) { fields.push('"agentId"'); args.push(parseInt(data.agent_id)); }
   if (data.property_id !== undefined) { fields.push('"propertyId"'); args.push(data.property_id ? parseInt(data.property_id) : null); }
   if (fields.length) {
-    const setClause = fields.map((f, i) => `${f} = $${i + 1}`).join(', ');
-    await sql(`UPDATE leads SET ${setClause} WHERE id = $${args.length + 1}`, [...args, id]);
+    const existing2 = await sql`SELECT * FROM leads WHERE id = ${id}`;
+    if (!existing2.length) return null;
+    const e = existing2[0];
+
+    const name       = data.name !== undefined       ? data.name                          : e.name;
+    const email      = data.email !== undefined      ? data.email                         : e.email;
+    const phone      = data.phone !== undefined      ? data.phone                         : e.phone;
+    const source     = data.source !== undefined     ? data.source                        : e.source;
+    const stage      = data.stage !== undefined      ? data.stage                         : e.stage;
+    const budget     = data.budget !== undefined     ? parseFloat(data.budget)            : Number(e.budget);
+    const notes      = data.notes !== undefined      ? data.notes                         : e.notes;
+    const gender     = data.gender !== undefined     ? data.gender                        : e.gender;
+    const ccName     = data.customContactName !== undefined  ? data.customContactName     : e.customContactName;
+    const ccPhone    = data.customContactPhone !== undefined ? data.customContactPhone    : e.customContactPhone;
+    const ccAddress  = data.customContactAddress !== undefined ? data.customContactAddress : e.customContactAddress;
+    const agentId    = data.agent_id !== undefined   ? parseInt(data.agent_id)            : Number(e.agentId);
+    const propertyId = data.property_id !== undefined ? (data.property_id ? parseInt(data.property_id) : null) : (e.propertyId ? Number(e.propertyId) : null);
+
+    await sql`
+      UPDATE leads
+      SET name=${name}, email=${email}, phone=${phone}, source=${source}, stage=${stage},
+          budget=${budget}, notes=${notes}, gender=${gender},
+          "customContactName"=${ccName}, "customContactPhone"=${ccPhone},
+          "customContactAddress"=${ccAddress}, "agentId"=${agentId}, "propertyId"=${propertyId}
+      WHERE id=${id}
+    `;
   }
 
   const updated = await sql`SELECT * FROM leads WHERE id = ${id}`;
