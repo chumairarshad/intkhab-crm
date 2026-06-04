@@ -26,7 +26,7 @@ function formatPKR(n: number) {
 
 const STAGES = ['New', 'Contacted', 'Viewing', 'Negotiating', 'Closed', 'Lost'];
 const SOURCES = ['Website', 'Referral', 'Social Media', 'Walk-in', 'Cold Call'];
-const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100];
+const PAGE_SIZE_OPTIONS = [10, 50, 100, 1000, 5000];
 
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
