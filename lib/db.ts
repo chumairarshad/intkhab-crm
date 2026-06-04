@@ -703,3 +703,20 @@ export async function dismissPasswordResetRequest(id: number): Promise<void> {
   await initDb();
   await sql`UPDATE password_reset_requests SET status = 'dismissed' WHERE id = ${id}`;
 }
+
+export async function getLeadsGenderStats(isAdmin: boolean, userId: number): Promise<{ total: number; male: number; female: number; stageCounts: Record<string, number> }> {
+  await initDb();
+  const rows = isAdmin
+    ? await sql`SELECT gender, stage, COUNT(*) as count FROM leads GROUP BY gender, stage`
+    : await sql`SELECT gender, stage, COUNT(*) as count FROM leads WHERE "agentId" = ${userId} GROUP BY gender, stage`;
+  let total = 0, male = 0, female = 0;
+  const stageCounts: Record<string, number> = {};
+  for (const r of rows) {
+    const c = Number(r.count);
+    total += c;
+    if (r.gender === 'Male') male += c;
+    else if (r.gender === 'Female') female += c;
+    stageCounts[String(r.stage)] = (stageCounts[String(r.stage)] || 0) + c;
+  }
+  return { total, male, female, stageCounts };
+}

@@ -1,5 +1,5 @@
 import { auth } from '@/lib/auth';
-import { getProperties, getLeads, getEvents, formatPKR, getAgents } from '@/lib/db';
+import { getProperties, getLeads, getEvents, formatPKR, getAgents, getLeadsGenderStats } from '@/lib/db';
 import Link from 'next/link';
 import DailyBriefing from './DailyBriefing';
 
@@ -9,21 +9,30 @@ export default async function DashboardPage() {
   const isAdmin = user?.role === 'admin';
   const userId = parseInt(user?.id || '0');
 
-  const [properties, leads, allEvents, allLeads, agentList] = await Promise.all([
+  const [properties, recentLeads, allEvents, leadsStats, allLeadsStats, agentList] = await Promise.all([
     getProperties(isAdmin, userId),
-    getLeads(isAdmin, userId),
+    getLeads(isAdmin, userId, 5),
     getEvents(isAdmin, userId),
-    isAdmin ? getLeads(true, 0) : Promise.resolve([]),
+    getLeadsGenderStats(isAdmin, userId),
+    isAdmin ? getLeadsGenderStats(true, 0) : Promise.resolve({ total: 0, male: 0, female: 0, stageCounts: {} }),
     isAdmin ? getAgents() : Promise.resolve([]),
   ]);
 
+  // For agents progress we still need full leads (only 500 but enough for progress table)
+  const allLeadsForAgents = isAdmin ? await getLeads(true, 0) : [];
+
   const agentsProgress = isAdmin ? agentList.map((a: any) => ({
     id: a.id, name: a.name,
-    total: allLeads.filter((l: any) => l.agentId === a.id).length,
-    called: allLeads.filter((l: any) => l.agentId === a.id && (l.activities||[]).length > 0).length,
-    closed: allLeads.filter((l: any) => l.agentId === a.id && l.stage === 'Closed').length,
-    negotiating: allLeads.filter((l: any) => l.agentId === a.id && l.stage === 'Negotiating').length,
+    total: allLeadsForAgents.filter((l: any) => l.agentId === a.id).length,
+    called: allLeadsForAgents.filter((l: any) => l.agentId === a.id && (l.activities||[]).length > 0).length,
+    closed: allLeadsForAgents.filter((l: any) => l.agentId === a.id && l.stage === 'Closed').length,
+    negotiating: allLeadsForAgents.filter((l: any) => l.agentId === a.id && l.stage === 'Negotiating').length,
   })) : [];
+
+  const totalLeads = leadsStats.total;
+  const maleLeads = leadsStats.male;
+  const femaleLeads = leadsStats.female;
+  const stageCounts = leadsStats.stageCounts;
 
   const now = new Date();
   const events = allEvents
@@ -34,9 +43,6 @@ export default async function DashboardPage() {
   const totalValue = properties.reduce((s, p) => s + p.price, 0);
   const available = properties.filter((p) => p.status === 'Available').length;
   const sold = properties.filter((p) => p.status === 'Sold').length;
-
-  const stageCounts: Record<string, number> = {};
-  leads.forEach((l) => { stageCounts[l.stage] = (stageCounts[l.stage] || 0) + 1; });
 
   // Daily Brief data
   const today = new Date();
@@ -50,18 +56,18 @@ export default async function DashboardPage() {
       time: e.startTime.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' }),
     }));
 
-  const untouchedLeads = leads
+  const untouchedLeads = recentLeads
     .filter((l) => l.stage === 'New' || l.stage === 'Contacted')
     .slice(0, 10)
     .map((l) => ({ id: l.id, name: l.name, stage: l.stage, phone: l.phone }));
 
-  const hotLeads = leads
+  const hotLeads = recentLeads
     .filter((l) => l.stage === 'Negotiating')
     .map((l) => ({ id: l.id, name: l.name, phone: l.phone }));
 
   const briefData = {
     userName: user?.name || 'Agent',
-    totalLeads: leads.length,
+    totalLeads: totalLeads,
     newLeads: stageCounts['New'] || 0,
     negotiating: stageCounts['Negotiating'] || 0,
     closed: stageCounts['Closed'] || 0,
@@ -69,9 +75,6 @@ export default async function DashboardPage() {
     untouchedLeads,
     hotLeads,
   };
-
-  const maleLeads = leads.filter((l) => l.gender === 'Male').length;
-  const femaleLeads = leads.filter((l) => l.gender === 'Female').length;
 
   const stages: [string, string][] = [
     ['New', '#1A56DB'], ['Contacted', '#0284C7'], ['Viewing', '#D97706'],
@@ -109,7 +112,7 @@ export default async function DashboardPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
               <div className="stat-icon yellow"><i className="fas fa-users"></i></div>
             </div>
-            <div className="stat-value">{leads.length}</div>
+            <div className="stat-value">{totalLeads}</div>
             <div className="stat-label">Total Leads</div>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>{stageCounts['New'] || 0} new leads</div>
           </div>
@@ -127,7 +130,7 @@ export default async function DashboardPage() {
             </div>
             <div className="stat-value">{maleLeads}</div>
             <div className="stat-label">Male Leads</div>
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>{leads.length > 0 ? Math.round((maleLeads / leads.length) * 100) : 0}% of total</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>{totalLeads > 0 ? Math.round((maleLeads / totalLeads) * 100) : 0}% of total</div>
           </div>
           <div className="stat-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -135,7 +138,7 @@ export default async function DashboardPage() {
             </div>
             <div className="stat-value">{femaleLeads}</div>
             <div className="stat-label">Female Leads</div>
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>{leads.length > 0 ? Math.round((femaleLeads / leads.length) * 100) : 0}% of total</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>{totalLeads > 0 ? Math.round((femaleLeads / totalLeads) * 100) : 0}% of total</div>
           </div>
         </div>
 
@@ -150,20 +153,20 @@ export default async function DashboardPage() {
                 <i className="fas fa-male" style={{ fontSize: 20, color: 'var(--accent)' }}></i>
                 <div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)', lineHeight: 1 }}>{maleLeads}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Male · {leads.length > 0 ? Math.round((maleLeads / leads.length) * 100) : 0}%</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Male · {totalLeads > 0 ? Math.round((maleLeads / totalLeads) * 100) : 0}%</div>
                 </div>
               </div>
               <div style={{ flex: 1, background: '#FFE4EC', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <i className="fas fa-female" style={{ fontSize: 20, color: '#C1121F' }}></i>
                 <div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: '#C1121F', lineHeight: 1 }}>{femaleLeads}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Female · {leads.length > 0 ? Math.round((femaleLeads / leads.length) * 100) : 0}%</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Female · {totalLeads > 0 ? Math.round((femaleLeads / totalLeads) * 100) : 0}%</div>
                 </div>
               </div>
             </div>
             {stages.map(([stage, color]) => {
               const count = stageCounts[stage] || 0;
-              const pct = leads.length > 0 ? Math.round((count / leads.length) * 100) : 0;
+              const pct = totalLeads > 0 ? Math.round((count / totalLeads) * 100) : 0;
               return (
                 <div key={stage} style={{ marginBottom: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -377,7 +380,7 @@ export default async function DashboardPage() {
               <table>
                 <thead><tr><th>Lead</th><th>Budget (PKR)</th><th>Stage</th></tr></thead>
                 <tbody>
-                  {leads.slice(0, 5).map((l) => (
+                  {recentLeads.slice(0, 5).map((l) => (
                     <tr key={l.id}>
                       <td><div style={{ fontWeight: 600, fontSize: 13 }}>{l.name}</div><div style={{ fontSize: 11, color: 'var(--text3)' }}>{l.source}</div></td>
                       <td style={{ fontWeight: 700 }}>{formatPKR(l.budget)}</td>
