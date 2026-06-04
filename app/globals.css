@@ -3,25 +3,25 @@
 @tailwind utilities;
 
 :root {
-  /* Forest Luxury Theme */
-  --bg:           #F2F4F0;
-  --bg2:          #E8EDE4;
-  --sidebar:      #1A2E1F;
-  --sidebar2:     #223828;
-  --accent:       #2D6A4F;
-  --accent2:      #1B4332;
-  --accent-light: #D8EDDF;
-  --accent-hover: #40916C;
+  /* Royal Maroon Theme */
+  --bg:           #F9F4F4;
+  --bg2:          #F2E8E8;
+  --sidebar:      #2D0A0A;
+  --sidebar2:     #3D1010;
+  --accent:       #8B1A1A;
+  --accent2:      #6B0F0F;
+  --accent-light: #F5D5D5;
+  --accent-hover: #A52020;
   --card:         #FFFFFF;
-  --border:       #D0DAC8;
-  --border2:      #B8C9AD;
-  --text:         #1A2E1F;
-  --text1:        #1A2E1F;
-  --text2:        #2D4A35;
-  --text3:        #52745A;
-  --text4:        #8BA888;
-  --sidebar-text: #8FB89A;
-  --sidebar-text2:#C2D9C8;
+  --border:       #E8D0D0;
+  --border2:      #D4B0B0;
+  --text:         #2D0A0A;
+  --text1:        #2D0A0A;
+  --text2:        #4A1A1A;
+  --text3:        #7A4A4A;
+  --text4:        #B08888;
+  --sidebar-text: #C08888;
+  --sidebar-text2:#E8C8C8;
   --green:        #40916C;
   --green-bg:     #D8F3DC;
   --red:          #C1121F;
@@ -31,9 +31,9 @@
   --blue-bg:      #E8F4F8;
   --blue:         #1D6FA4;
   --sidebar-w:    260px;
-  --shadow:       0 1px 3px rgba(26,46,31,0.08);
-  --shadow-md:    0 4px 12px rgba(26,46,31,0.10);
-  --shadow-lg:    0 10px 30px rgba(26,46,31,0.15);
+  --shadow:       0 1px 3px rgba(45,10,10,0.08);
+  --shadow-md:    0 4px 12px rgba(45,10,10,0.10);
+  --shadow-lg:    0 10px 30px rgba(45,10,10,0.15);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -45,7 +45,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Plus Jakarta San
 
 .sidebar { width: var(--sidebar-w); background: var(--sidebar); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; overflow-y: auto; }
 .sidebar-logo { padding: 22px 20px; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; gap: 12px; }
-.logo-icon { width: 42px; height: 42px; background: var(--accent); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; box-shadow: 0 4px 12px rgba(45,106,79,0.5); }
+.logo-icon { width: 42px; height: 42px; background: var(--accent); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; box-shadow: 0 4px 12px rgba(139,26,26,0.5); }
 .logo-text { font-size: 14px; font-weight: 800; color: #FFFFFF; }
 .logo-sub { font-size: 11px; color: rgba(148,163,184,0.8); margin-top: 2px; }
 .sidebar-user { padding: 14px 16px; margin: 12px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
@@ -56,7 +56,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Plus Jakarta San
 .nav-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(148,163,184,0.5); padding: 14px 10px 6px; font-weight: 600; }
 .nav-item { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 10px; color: var(--sidebar-text); text-decoration: none; font-size: 13.5px; font-weight: 500; transition: all 0.15s; margin-bottom: 2px; cursor: pointer; }
 .nav-item:hover { background: rgba(255,255,255,0.07); color: var(--sidebar-text2); }
-.nav-item.active { background: var(--accent); color: #FFFFFF; box-shadow: 0 4px 12px rgba(45,106,79,0.4); }
+.nav-item.active { background: var(--accent); color: #FFFFFF; box-shadow: 0 4px 12px rgba(139,26,26,0.4); }
 .sidebar-footer { padding: 14px 12px; border-top: 1px solid rgba(255,255,255,0.07); }
 .logout-btn { display: flex; align-items: center; gap: 10px; color: var(--sidebar-text); font-size: 13px; padding: 10px 12px; border-radius: 10px; transition: all 0.15s; font-weight: 500; cursor: pointer; border: none; background: none; width: 100%; }
 .logout-btn:hover { background: rgba(220,38,38,0.15); color: #FCA5A5; }
@@ -107,7 +107,7 @@ tr:last-child td { border-bottom: none; }
 .badge-available { background: var(--green-bg); color: var(--green); }
 .badge-sold { background: var(--red-bg); color: var(--red); }
 .badge-offer { background: var(--yellow-bg); color: var(--yellow); }
-.badge-new { background: #EFF6FF; color: var(--accent); }
+.badge-new { background: #F5EAEA; color: var(--accent); }
 .badge-contacted { background: #F0F9FF; color: #0284C7; }
 .badge-viewing { background: var(--yellow-bg); color: var(--yellow); }
 .badge-negotiating { background: #FFF7ED; color: #EA580C; }
@@ -116,7 +116,7 @@ tr:last-child td { border-bottom: none; }
 .form-group { margin-bottom: 15px; }
 .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
 .form-input { width: 100%; background: #FFFFFF; border: 1px solid var(--border); border-radius: 9px; padding: 10px 13px; color: var(--text); font-size: 13.5px; outline: none; transition: border-color 0.2s; font-family: inherit; }
-.form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,106,79,0.12); }
+.form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(139,26,26,0.12); }
 
 .modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.5); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
 .modal { background: white; border: 1px solid var(--border); border-radius: 18px; padding: 28px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
@@ -180,7 +180,7 @@ tr:last-child td { border-bottom: none; }
   transition: all 0.15s;
 }
 .mob-drawer-item i { font-size: 22px; }
-.mob-drawer-item.active { background: #EFF6FF; color: var(--accent); }
+.mob-drawer-item.active { background: #F5EAEA; color: var(--accent); }
 .mob-drawer-item:active { transform: scale(0.96); }
 .mob-drawer-signout { background: #FEF2F2; color: #EF4444; }
 .mob-drawer-signout:active { background: #EF4444; color: white; }
@@ -192,8 +192,8 @@ tr:last-child td { border-bottom: none; }
 /* ── Call & WhatsApp Action Buttons ── */
 .action-call-btn {
   width: 34px; height: 34px; border-radius: 50%;
-  background: #EFF6FF; color: var(--accent);
-  border: 1.5px solid #BFDBFE;
+  background: #F5EAEA; color: var(--accent);
+  border: 1.5px solid #E8C0C0;
   display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; transition: all 0.15s; font-size: 14px;
   flex-shrink: 0; padding: 0;
