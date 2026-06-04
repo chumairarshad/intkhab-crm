@@ -250,7 +250,11 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
     const genderRows = rows
       .filter((r) => r.name?.trim() && r.gender?.trim())
       .map((r) => ({ name: r.name.trim(), gender: r.gender.trim() }));
-    if (!genderRows.length) return 0;
+    if (!genderRows.length) {
+      flash(`⚠️ No gender data found. Check CSV has "name" and "gender" columns. First row keys: ${Object.keys(rows[0] || {}).join(', ')}`);
+      return 0;
+    }
+    flash(`⏳ Sending ${genderRows.length.toLocaleString()} gender records to server...`, true);
 
     const CHUNK = 1000;
     let updated = 0;

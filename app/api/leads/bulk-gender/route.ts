@@ -32,15 +32,17 @@ export async function POST(req: NextRequest) {
           if (!gender) return null;
 
           return {
-            sql: `UPDATE leads SET gender = ? WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND (gender IS NULL OR gender = '')`,
+            sql: `UPDATE leads SET gender = ? WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))`,
             args: [gender, row.name?.trim() || ''],
           };
         })
         .filter(Boolean) as { sql: string; args: any[] }[];
 
       if (statements.length > 0) {
-        await turso.batch(statements, 'write');
-        updated += statements.length;
+        const results = await turso.batch(statements, 'write');
+        for (const r of results) {
+          updated += Number(r.rowsAffected || 0);
+        }
       }
     }
 
