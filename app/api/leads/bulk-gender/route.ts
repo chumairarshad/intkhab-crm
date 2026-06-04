@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { turso } from '@/lib/db';
+import { neon } from '@neondatabase/serverless';
 import { auth } from '@/lib/auth';
+
+const sql = neon(process.env.DATABASE_URL!);
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,32 +20,19 @@ export async function POST(req: NextRequest) {
     }
 
     let updated = 0;
-    const CHUNK_SIZE = 100;
 
-    for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
-      const chunk = rows.slice(i, i + CHUNK_SIZE);
+    for (const row of rows) {
+      const rawGender = (row.gender || '').toString().trim();
+      let gender = '';
+      if (/^m/i.test(rawGender)) gender = 'Male';
+      else if (/^f/i.test(rawGender)) gender = 'Female';
+      if (!gender) continue;
 
-      const statements = chunk
-        .map((row) => {
-          const rawGender = (row.gender || '').toString().trim();
-          let gender = '';
-          if (/^m/i.test(rawGender)) gender = 'Male';
-          else if (/^f/i.test(rawGender)) gender = 'Female';
-          if (!gender) return null;
-
-          return {
-            sql: `UPDATE leads SET gender = ? WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))`,
-            args: [gender, row.name?.trim() || ''],
-          };
-        })
-        .filter(Boolean) as { sql: string; args: any[] }[];
-
-      if (statements.length > 0) {
-        const results = await turso.batch(statements, 'write');
-        for (const r of results) {
-          updated += Number(r.rowsAffected || 0);
-        }
-      }
+      const result = await sql`
+        UPDATE leads SET gender = ${gender}
+        WHERE LOWER(TRIM(name)) = LOWER(TRIM(${row.name?.trim() || ''}))
+      `;
+      updated += result.length;
     }
 
     return NextResponse.json({ updated });
