@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import { useRouter } from 'next/navigation';
 import { getCountryFromPhone } from '@/lib/phone-country';
 
@@ -249,6 +250,73 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
       if (csvRef.current) csvRef.current.value = '';
     }
   };
+
+  // ── XLSX Upload ───────────────────────────────────────────────
+  const xlsxRef = useRef<HTMLInputElement>(null);
+
+  const handleXLSX = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvLoading(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      if (!rawRows.length) { flash('⚠️ XLSX file is empty!'); return; }
+      // Normalize keys to lowercase
+      const rows = rawRows.map((r) => {
+        const normalized: Record<string, string> = {};
+        for (const key of Object.keys(r)) {
+          normalized[key.toLowerCase().trim()] = String(r[key] ?? '').trim();
+        }
+        return normalized;
+      });
+      const res = await fetch('/api/leads/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) { flash(`❌ Import failed: ${data.error || 'Server error'}`); return; }
+      if (data.count === 0) { flash('⚠️ No valid leads found. Make sure the "name" column is filled.'); return; }
+      flash(`✅ ${data.count} lead${data.count !== 1 ? 's' : ''} imported from XLSX successfully!`);
+      router.refresh();
+    } catch (err: any) {
+      flash(`❌ XLSX error: ${err.message}`);
+    } finally {
+      setCsvLoading(false);
+      if (xlsxRef.current) xlsxRef.current.value = '';
+    }
+  };
+
+  const downloadXLSXTemplate = () => {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['name', 'email', 'phone', 'source', 'stage', 'budget', 'notes'],
+      ['Ali Hassan', 'ali@email.com', '+923001234567', 'Website', 'New', '5000000', 'Interested in DHA'],
+    ]);
+    // Column widths
+    ws['!cols'] = [{ wch: 20 }, { wch: 25 }, { wch: 18 }, { wch: 15 }, { wch: 12 }, { wch: 14 }, { wch: 30 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Leads');
+    XLSX.writeFile(wb, 'leads-template.xlsx');
+  };
+
+  // ── Close dropdowns on outside click ─────────────────────────
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.import-dropdown-wrap')) {
+        ['import-dropdown','upload-dropdown'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = 'none';
+        });
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   // ── Voice Recording Helpers ───────────────────────────────────
   const resetAudio = () => {
@@ -522,18 +590,52 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
         </div>
         <div className="topbar-actions">
           <input ref={csvRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleCSV} />
+          <input ref={xlsxRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleXLSX} />
           {isAdmin && (
             <button className={`btn ${showAgentView ? 'btn-primary' : 'btn-outline'}`} onClick={() => setShowAgentView((v) => !v)}>
               <i className="fas fa-users"></i><span className="hide-xs"> Agent View</span>
             </button>
           )}
-          <button className="btn btn-outline" onClick={downloadTemplate} title="Download CSV template">
-            <i className="fas fa-download"></i> <span className="hide-xs">Template</span>
-          </button>
-          <button className="btn btn-outline" onClick={() => csvRef.current?.click()} disabled={csvLoading} style={{ color: 'var(--green)', borderColor: '#A7F3D0' }}>
-            {csvLoading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-file-csv"></i>}
-            <span className="hide-xs">{csvLoading ? ' Importing...' : ' CSV Upload'}</span>
-          </button>
+          <div style={{ position: 'relative', display: 'inline-block' }} className="import-dropdown-wrap">
+            <button className="btn btn-outline" title="Download Templates"
+              onClick={() => {
+                const el = document.getElementById('import-dropdown');
+                if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
+              }}>
+              <i className="fas fa-download"></i> <span className="hide-xs"> Template</span>
+            </button>
+            <div id="import-dropdown" style={{ display: 'none', position: 'absolute', top: '110%', left: 0, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 200, minWidth: 180, overflow: 'hidden' }}>
+              <button onClick={() => { downloadTemplate(); const el = document.getElementById('import-dropdown'); if(el) el.style.display='none'; }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit' }}>
+                <i className="fas fa-file-csv" style={{ color: '#059669', width: 16 }}></i> CSV Template
+              </button>
+              <button onClick={() => { downloadXLSXTemplate(); const el = document.getElementById('import-dropdown'); if(el) el.style.display='none'; }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit', borderTop: '1px solid var(--border)' }}>
+                <i className="fas fa-file-excel" style={{ color: '#1D6F42', width: 16 }}></i> XLSX Template
+              </button>
+            </div>
+          </div>
+          <div style={{ position: 'relative', display: 'inline-block' }} className="import-dropdown-wrap">
+            <button className="btn btn-outline" disabled={csvLoading} style={{ color: 'var(--green)', borderColor: '#A7F3D0' }}
+              onClick={() => {
+                const el = document.getElementById('upload-dropdown');
+                if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
+              }}>
+              {csvLoading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-file-upload"></i>}
+              <span className="hide-xs">{csvLoading ? ' Importing...' : ' Import'}</span>
+              <i className="fas fa-chevron-down" style={{ fontSize: 10, marginLeft: 4 }}></i>
+            </button>
+            <div id="upload-dropdown" style={{ display: 'none', position: 'absolute', top: '110%', left: 0, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 200, minWidth: 180, overflow: 'hidden' }}>
+              <button onClick={() => { csvRef.current?.click(); const el = document.getElementById('upload-dropdown'); if(el) el.style.display='none'; }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit' }}>
+                <i className="fas fa-file-csv" style={{ color: '#059669', width: 16 }}></i> Upload CSV
+              </button>
+              <button onClick={() => { xlsxRef.current?.click(); const el = document.getElementById('upload-dropdown'); if(el) el.style.display='none'; }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit', borderTop: '1px solid var(--border)' }}>
+                <i className="fas fa-file-excel" style={{ color: '#1D6F42', width: 16 }}></i> Upload XLSX
+              </button>
+            </div>
+          </div>
           <button className="btn btn-outline" onClick={exportCSV} title="Export leads to CSV">
             <i className="fas fa-file-export"></i> <span className="hide-xs">Export CSV</span>
           </button>
