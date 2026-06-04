@@ -1,5 +1,5 @@
 import { auth } from '@/lib/auth';
-import { getLeads, getUsers, getProperties } from '@/lib/db';
+import { getLeads, getLeadsCount, getUsers, getProperties } from '@/lib/db';
 import LeadsClient from './LeadsClient';
 
 export default async function LeadsPage() {
@@ -8,14 +8,16 @@ export default async function LeadsPage() {
   const isAdmin = user?.role === 'admin';
   const userId = parseInt(user?.id || '0');
 
-  const [leads, allUsers, allProperties] = await Promise.all([
+  const [leads, totalLeads, allUsers, allProperties] = await Promise.all([
     getLeads(isAdmin, userId, 500, 0),
+    getLeadsCount(isAdmin, userId),
     getUsers(),
     getProperties(true, 0),
   ]);
 
   return (
     <LeadsClient
+      totalLeads={totalLeads}
       leads={leads.map((l) => ({
         ...l,
         createdAt: l.createdAt.toISOString(),

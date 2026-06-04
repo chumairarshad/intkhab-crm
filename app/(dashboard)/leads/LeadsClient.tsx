@@ -44,8 +44,8 @@ const AGENT_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#E
 function agentColor(id: number) { return AGENT_COLORS[id % AGENT_COLORS.length]; }
 function agentInitials(name: string) { return name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase(); }
 
-export default function LeadsClient({ leads: initial, agents, properties, isAdmin }: {
-  leads: Lead[]; agents: Agent[]; properties: Property[]; isAdmin: boolean;
+export default function LeadsClient({ leads: initial, agents, properties, isAdmin, totalLeads }: {
+  leads: Lead[]; agents: Agent[]; properties: Property[]; isAdmin: boolean; totalLeads: number;
 }) {
   const router = useRouter();
   const [leads, setLeads] = useState(initial);
@@ -76,6 +76,8 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
   const [customContactPhone, setCustomContactPhone] = useState('');
   const [customContactAddress, setCustomContactAddress] = useState('');
   const [csvLoading, setCsvLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [allLoaded, setAllLoaded] = useState(false);
   const csvRef = useRef<HTMLInputElement>(null);
 
   // ── Voice Recording ────────────────────────────────────────────
@@ -538,6 +540,21 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
     else if (pageNumbers[pageNumbers.length - 1] !== '...') { pageNumbers.push('...'); }
   }
 
+  const loadMoreLeads = async () => {
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/leads?offset=${leads.length}&limit=500`);
+      const data = await res.json();
+      const newLeads = data.leads as Lead[];
+      setLeads((prev) => [...prev, ...newLeads]);
+      if (leads.length + newLeads.length >= data.total) setAllLoaded(true);
+    } catch (err) {
+      flash('❌ Failed to load more leads');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const btnBase = { border: '1px solid var(--border)', borderRadius: 7, fontSize: 12, cursor: 'pointer' as const };
 
   return (
@@ -614,7 +631,7 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
       <div className="topbar" style={{ paddingLeft: 60 }}>
         <div>
           <div className="topbar-title">Leads</div>
-          <div className="topbar-sub">{leads.length} leads in pipeline</div>
+          <div className="topbar-sub">{totalLeads.toLocaleString()} leads in pipeline {leads.length < totalLeads ? `(showing ${leads.length})` : ""}</div>
         </div>
         <div className="topbar-actions">
           <input ref={csvRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleCSV} />
@@ -1063,6 +1080,16 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
               )}
             </div>
           </div>
+
+          {/* Load More from server */}
+          {!allLoaded && leads.length < totalLeads && (
+            <div style={{ textAlign: 'center', padding: '16px 0', borderTop: '1px solid var(--border)', marginTop: 8 }}>
+              <button onClick={loadMoreLeads} disabled={loadingMore}
+                style={{ padding: '10px 28px', borderRadius: 10, background: 'var(--accent)', color: 'white', border: 'none', fontWeight: 700, fontSize: 13, cursor: loadingMore ? 'default' : 'pointer', opacity: loadingMore ? 0.7 : 1, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                {loadingMore ? <><i className="fas fa-spinner fa-spin"></i> Loading...</> : <><i className="fas fa-chevron-down"></i> Load More ({(totalLeads - leads.length).toLocaleString()} remaining)</>}
+              </button>
+            </div>
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (

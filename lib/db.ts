@@ -368,6 +368,14 @@ export async function deleteProperty(id: number) {
   await turso.execute({ sql: 'DELETE FROM properties WHERE id = ?', args: [id] });
 }
 
+export async function getLeadsCount(isAdmin: boolean, userId: number): Promise<number> {
+  await initDb();
+  const res = isAdmin
+    ? await turso.execute('SELECT COUNT(*) FROM leads')
+    : await turso.execute({ sql: 'SELECT COUNT(*) FROM leads WHERE agentId = ?', args: [userId] });
+  return Number(res.rows[0][0]);
+}
+
 export async function getLeads(isAdmin: boolean, userId: number, limit = 500, offset = 0): Promise<Lead[]> {
   await initDb();
   const res = isAdmin
