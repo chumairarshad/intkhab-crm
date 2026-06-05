@@ -98,7 +98,7 @@ export default function FollowupsClient({ initial }: { initial: FollowUp[] }) {
               const st = statusStyle(status);
               const salutation = f.leadGender === 'Female' ? "Ma'am" : 'Sir';
               const phone = f.leadPhone.replace(/\D/g, '');
-              const waMsg = encodeURIComponent('Assalam o Alaikum ' + f.leadName + ' ' + salutation + ', How are you?');
+              const waMsg = encodeURIComponent('Assalam O Alaikum');
               const waUrl = 'https://api.whatsapp.com/send?phone=' + phone + '&text=' + waMsg + '&app_absent=0';
               return (
                 <div key={f.id} className="card" style={{ padding: '16px 20px', border: '1.5px solid ' + st.border }}>
