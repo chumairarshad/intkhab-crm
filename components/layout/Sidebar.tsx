@@ -71,7 +71,7 @@ export default function Sidebar({ userName, userRole, resetRequestCount = 0 }: S
         <div className="sidebar-logo">
           <div className="logo-icon">🏠</div>
           <div>
-            <div className="logo-text">Team Intkhab Alam CRM</div>
+            <div className="logo-text">Fill My Calendar</div>
             <div className="logo-sub">Real Estate Platform</div>
           </div>
         </div>

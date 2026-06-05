@@ -3,8 +3,8 @@ import "./globals.css";
 import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "Team Intkhab Alam CRM",
-  description: "Real Estate CRM Platform by Team Intkhab Alam",
+  title: "Fill My Calendar",
+  description: "Team Intkhab",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -133,7 +133,7 @@ export default function InvoicesClient({
       <style>body{font-family:Arial,sans-serif;margin:40px;color:#1E293B}h1{color:#1A56DB}table{width:100%;border-collapse:collapse}th{background:#F8FAFC;padding:10px 14px;text-align:left;border-bottom:2px solid #E2E8F0}</style>
       </head><body>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px">
-        <div><h1>🏠 Team Intkhab Alam CRM</h1><div style="color:#64748B;font-size:13px">Real Estate Platform</div></div>
+        <div><h1>🏠 Fill My Calendar</h1><div style="color:#64748B;font-size:13px">Team Intkhab</div></div>
         <div style="text-align:right"><div style="font-size:22px;font-weight:800;color:#1A56DB">${inv.invoiceNumber}</div>
           <div style="margin-top:4px;padding:4px 12px;background:${inv.status==='paid'?'#D1FAE5':inv.status==='sent'?'#DBEAFE':'#FEF3C7'};color:${inv.status==='paid'?'#059669':inv.status==='sent'?'#1A56DB':'#D97706'};border-radius:20px;font-size:12px;font-weight:700;display:inline-block;text-transform:uppercase">${inv.status}</div>
         </div>

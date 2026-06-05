@@ -187,10 +187,10 @@ export default function LoginPage() {
 
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: '#FFFFFF', letterSpacing: -0.5 }}>
-            Team Intkhab Alam CRM
+            Fill My Calendar
           </h1>
           <p style={{ fontSize: 13, color: 'rgba(148,163,184,0.8)', marginTop: 4 }}>
-            Real Estate Management Platform
+            Team Intkhab
           </p>
         </div>
 

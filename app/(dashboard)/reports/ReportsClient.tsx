@@ -47,8 +47,8 @@ export default function ReportsClient({ stats, byType, stageData, agentPerf, gen
         <div className="print-header" style={{ marginBottom: 24, borderBottom: '2px solid #1A56DB', paddingBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#0A1628' }}>🏠 Team Intkhab Alam CRM</div>
-              <div style={{ fontSize: 13, color: '#64748B', marginTop: 4 }}>Real Estate Performance Report</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#0A1628' }}>🏠 Fill My Calendar</div>
+              <div style={{ fontSize: 13, color: '#64748B', marginTop: 4 }}>Team Intkhab</div>
             </div>
             <div style={{ textAlign: 'right', fontSize: 12, color: '#64748B' }}>
               <div>Generated: {generatedAt}</div>
@@ -159,7 +159,7 @@ export default function ReportsClient({ stats, byType, stageData, agentPerf, gen
 
         {/* Print Footer */}
         <div className="print-header" style={{ marginTop: 32, paddingTop: 16, borderTop: '1px solid #ddd', fontSize: 11, color: '#94A3B8', textAlign: 'center' }}>
-          Team Intkhab Alam CRM — Real Estate Management Platform — Confidential
+          Fill My Calendar — Team Intkhab — Confidential
         </div>
       </div>
     </>
