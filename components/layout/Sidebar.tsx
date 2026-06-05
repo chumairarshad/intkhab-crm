@@ -72,7 +72,7 @@ export default function Sidebar({ userName, userRole, resetRequestCount = 0 }: S
           <div className="logo-icon">🏠</div>
           <div>
             <div className="logo-text">Fill My Calendar</div>
-            <div className="logo-sub">Real Estate Platform</div>
+            <div className="logo-sub">Team Intkhab</div>
           </div>
         </div>
 
@@ -130,7 +130,7 @@ export default function Sidebar({ userName, userRole, resetRequestCount = 0 }: S
         </div>
         <div className="sidebar-credit">
           Created by <strong style={{ color: '#CBD5E1' }}>Umair Arshad</strong><br />
-          with <span style={{ color: '#EF4444' }}>❤️</span> for Real Estate
+          with <span style={{ color: '#EF4444' }}>❤️</span> for Team Intkhab
         </div>
       </aside>
 
