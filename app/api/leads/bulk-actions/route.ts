@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deleteLead, updateLead } from '@/lib/db';
 import { auth } from '@/lib/auth';
+import { neon } from '@neondatabase/serverless';
+const sql = neon(process.env.DATABASE_URL!);
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -39,6 +41,17 @@ export async function POST(req: NextRequest) {
       if (lead) count++;
     }
     return NextResponse.json({ success: true, count });
+  }
+
+  if (action === 'delete-by-date') {
+    // Admin only
+    if (user?.role !== 'admin') return NextResponse.json({ error: 'Admins only' }, { status: 403 });
+    const { date } = body as { date: string }; // expects 'YYYY-MM-DD'
+    if (!date) return NextResponse.json({ error: 'date required' }, { status: 400 });
+    // Delete activities first, then leads
+    await sql`DELETE FROM lead_activities WHERE "leadId" IN (SELECT id FROM leads WHERE DATE("createdAt") = ${date}::date)`;
+    const result = await sql`DELETE FROM leads WHERE DATE("createdAt") = ${date}::date RETURNING id`;
+    return NextResponse.json({ success: true, count: result.length, date });
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 });

@@ -125,6 +125,9 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
   const [genderFilter, setGenderFilter] = useState<''|'Male'|'Female'>('');
   const [callFilter, setCallFilter] = useState<''|'called'|'notcalled'>('');
   const [showAgentView, setShowAgentView] = useState(false);
+  const [showDeleteByDate, setShowDeleteByDate] = useState(false);
+  const [deleteByDateVal, setDeleteByDateVal] = useState('2026-06-06');
+  const [deleteByDateLoading, setDeleteByDateLoading] = useState(false);
 
   const agentMap = Object.fromEntries(agents.map((a) => [a.id, a.name]));
 
@@ -530,6 +533,26 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
     flash('✅ Activity saved!');
   };
 
+  const handleDeleteByDate = async () => {
+    if (!deleteByDateVal) return;
+    if (!confirm(`⚠️ Are you sure? This will PERMANENTLY delete ALL leads added on ${deleteByDateVal}. This cannot be undone!`)) return;
+    setDeleteByDateLoading(true);
+    const res = await fetch('/api/leads/bulk-actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete-by-date', date: deleteByDateVal }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      flash(`🗑️ ${data.count} leads deleted for ${deleteByDateVal}. Reloading...`);
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      flash(`❌ Error: ${data.error}`);
+    }
+    setDeleteByDateLoading(false);
+    setShowDeleteByDate(false);
+  };
+
   const exportCSV = () => {
     const rows = filtered;
     if (!rows.length) { flash('⚠️ No leads to export!'); return; }
@@ -708,6 +731,12 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
           <button className="btn btn-outline" onClick={exportCSV} title="Export leads to CSV">
             <i className="fas fa-file-export"></i> <span className="hide-xs">Export CSV</span>
           </button>
+          {isAdmin && (
+            <button className="btn btn-outline" onClick={() => setShowDeleteByDate(true)} title="Delete leads by date"
+              style={{ color: '#DC2626', borderColor: '#FECACA' }}>
+              <i className="fas fa-calendar-times"></i> <span className="hide-xs">Delete by Date</span>
+            </button>
+          )}
           <button className="btn btn-primary" onClick={openAdd}>
             <i className="fas fa-plus"></i> <span className="hide-xs">Add Lead</span>
           </button>
@@ -1378,6 +1407,42 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
                   {quickSaving ? 'Saving...' : <><i className="fas fa-bell"></i> Set Follow-up</>}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete by Date Modal */}
+      {showDeleteByDate && (
+        <div className="modal-backdrop" onClick={() => setShowDeleteByDate(false)}>
+          <div className="modal" style={{ maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title" style={{ color: '#DC2626' }}>
+                <i className="fas fa-calendar-times" style={{ marginRight: 8 }}></i>Delete Leads by Date
+              </div>
+              <button className="modal-close" onClick={() => setShowDeleteByDate(false)}>×</button>
+            </div>
+            <div style={{ padding: '4px 0 16px' }}>
+              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 13, color: '#991B1B' }}>
+                <i className="fas fa-exclamation-triangle" style={{ marginRight: 7 }}></i>
+                Yeh action <strong>permanent</strong> hai — is date ki saari leads aur unki activities delete ho jaengi. Undo nahi ho sakta!
+              </div>
+              <div className="form-group">
+                <label className="form-label">Date select karo</label>
+                <input type="date" className="form-input" value={deleteByDateVal}
+                  onChange={(e) => setDeleteByDateVal(e.target.value)} />
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>
+                Sirf is date ko <strong>createdAt</strong> wali leads delete hongi.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn btn-outline" onClick={() => setShowDeleteByDate(false)}>Cancel</button>
+              <button onClick={handleDeleteByDate} disabled={!deleteByDateVal || deleteByDateLoading}
+                style={{ background: '#DC2626', color: 'white', border: 'none', borderRadius: 9, padding: '9px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}>
+                {deleteByDateLoading
+                  ? <><i className="fas fa-spinner fa-spin"></i> Deleting...</>
+                  : <><i className="fas fa-trash"></i> Delete All on {deleteByDateVal}</>}
+              </button>
             </div>
           </div>
         </div>
