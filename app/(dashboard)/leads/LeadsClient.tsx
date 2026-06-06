@@ -125,12 +125,6 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
   const [genderFilter, setGenderFilter] = useState<''|'Male'|'Female'>('');
   const [callFilter, setCallFilter] = useState<''|'called'|'notcalled'>('');
   const [showAgentView, setShowAgentView] = useState(false);
-  const [showDeleteByDate, setShowDeleteByDate] = useState(false);
-  const [deleteByDateVal, setDeleteByDateVal] = useState('2026-06-06');
-  const [deleteByDateLoading, setDeleteByDateLoading] = useState(false);
-  const [deleteProgress, setDeleteProgress] = useState(0);
-  const [deleteTotal, setDeleteTotal] = useState(0);
-  const [deleteDeleted, setDeleteDeleted] = useState(0);
 
   const agentMap = Object.fromEntries(agents.map((a) => [a.id, a.name]));
 
@@ -536,52 +530,6 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
     flash('✅ Activity saved!');
   };
 
-  const handleDeleteByDate = async () => {
-    if (!deleteByDateVal) return;
-    if (!confirm(`⚠️ Are you sure? This will PERMANENTLY delete ALL leads added on ${deleteByDateVal}. This cannot be undone!`)) return;
-    setDeleteByDateLoading(true);
-    setDeleteProgress(0);
-    setDeleteDeleted(0);
-
-    // Step 1: count total
-    const countRes = await fetch('/api/leads/bulk-actions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'count-by-date', date: deleteByDateVal }),
-    });
-    const countData = await countRes.json();
-    const total = countData.count || 0;
-    setDeleteTotal(total);
-
-    if (total === 0) {
-      flash(`⚠️ No leads found for ${deleteByDateVal}.`);
-      setDeleteByDateLoading(false);
-      return;
-    }
-
-    // Step 2: batch delete with progress
-    let deleted = 0;
-    const BATCH = 200;
-    while (true) {
-      const res = await fetch('/api/leads/bulk-actions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete-batch-by-date', date: deleteByDateVal, batchSize: BATCH }),
-      });
-      const data = await res.json();
-      if (!data.success) { flash(`❌ Error during deletion`); break; }
-      deleted += data.deleted;
-      setDeleteDeleted(deleted);
-      setDeleteProgress(Math.min(100, Math.round((deleted / total) * 100)));
-      if (data.remaining === 0 || data.deleted === 0) break;
-    }
-
-    flash(`🗑️ ${deleted} leads deleted for ${deleteByDateVal}. Reloading...`);
-    setTimeout(() => window.location.reload(), 1800);
-    setDeleteByDateLoading(false);
-    setShowDeleteByDate(false);
-  };
-
   const exportCSV = () => {
     const rows = filtered;
     if (!rows.length) { flash('⚠️ No leads to export!'); return; }
@@ -698,6 +646,74 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
 
   return (
     <>
+      {/* ── Responsive Lead Action Buttons CSS ── */}
+      <style>{`
+        /* Lead card layout for mobile/tablet */
+        .lead-card {
+          background: white;
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          padding: 14px;
+          margin-bottom: 12px;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+        .lead-card-top {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .lead-card-body {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px 14px;
+          margin-bottom: 10px;
+          font-size: 12px;
+          color: var(--text3);
+        }
+        /* ── ACTION BUTTONS ROW ── */
+        .lead-action-bar {
+          display: flex !important;
+          align-items: center;
+          gap: 6px;
+          padding-top: 10px;
+          border-top: 1px solid var(--border);
+          flex-wrap: wrap;
+        }
+        .lead-action-bar .left-btns {
+          display: flex;
+          gap: 6px;
+          flex: 1;
+          flex-wrap: wrap;
+        }
+        .lead-action-bar button {
+          display: inline-flex !important;
+          align-items: center;
+          gap: 5px;
+          padding: 7px 13px;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          border: none;
+          white-space: nowrap;
+          justify-content: center;
+        }
+        .btn-call   { background: #EFF6FF; color: #2563EB; }
+        .btn-call:hover { background: #DBEAFE; }
+        .btn-wa     { background: #DCFCE7; color: #16A34A; }
+        .btn-wa:hover { background: #BBF7D0; }
+        .btn-notes  { background: #FEF9C3; color: #A16207; }
+        .btn-notes:hover { background: #FEF08A; }
+        .btn-edit   { background: #F3F4F6; color: #374151; }
+        .btn-edit:hover { background: #E5E7EB; }
+        .btn-del    { background: #FEE2E2; color: #DC2626; }
+        .btn-del:hover { background: #FECACA; }
+
+        /* All screens: show cards, hide table */
+        .lead-cards-view  { display: block !important; }
+        .lead-table-view  { display: none !important; }
+      `}</style>
 
       <div className="topbar" style={{ paddingLeft: 60 }}>
         <div>
@@ -713,57 +729,57 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
               <i className="fas fa-users"></i><span className="hide-xs"> Agent View</span>
             </button>
           )}
-          <div style={{ position: 'relative', display: 'inline-block' }} className="import-dropdown-wrap">
-            <button className="btn btn-outline" title="Download Templates"
-              onClick={() => {
-                const el = document.getElementById('import-dropdown');
-                if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
-              }}>
-              <i className="fas fa-download"></i> <span className="hide-xs"> Template</span>
-            </button>
-            <div id="import-dropdown" style={{ display: 'none', position: 'absolute', top: '110%', left: 0, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 200, minWidth: 180, overflow: 'hidden' }}>
-              <button onClick={() => { downloadTemplate(); const el = document.getElementById('import-dropdown'); if(el) el.style.display='none'; }}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit' }}>
-                <i className="fas fa-file-csv" style={{ color: '#059669', width: 16 }}></i> CSV Template
-              </button>
-              <button onClick={() => { downloadXLSXTemplate(); const el = document.getElementById('import-dropdown'); if(el) el.style.display='none'; }}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit', borderTop: '1px solid var(--border)' }}>
-                <i className="fas fa-file-excel" style={{ color: '#1D6F42', width: 16 }}></i> XLSX Template
-              </button>
-            </div>
-          </div>
-          <div style={{ position: 'relative', display: 'inline-block' }} className="import-dropdown-wrap">
-            <button className="btn btn-outline" disabled={csvLoading} style={{ color: 'var(--green)', borderColor: '#A7F3D0' }}
-              onClick={() => {
-                const el = document.getElementById('upload-dropdown');
-                if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
-              }}>
-              {csvLoading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-file-upload"></i>}
-              <span className="hide-xs">{csvLoading ? ' Importing...' : ' Import'}</span>
-              <i className="fas fa-chevron-down" style={{ fontSize: 10, marginLeft: 4 }}></i>
-            </button>
-            <div id="upload-dropdown" style={{ display: 'none', position: 'absolute', top: '110%', left: 0, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 200, minWidth: 180, overflow: 'hidden' }}>
-              <button onClick={() => { csvRef.current?.click(); const el = document.getElementById('upload-dropdown'); if(el) el.style.display='none'; }}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit' }}>
-                <i className="fas fa-file-csv" style={{ color: '#059669', width: 16 }}></i> Upload CSV
-              </button>
-              <button onClick={() => { xlsxRef.current?.click(); const el = document.getElementById('upload-dropdown'); if(el) el.style.display='none'; }}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit', borderTop: '1px solid var(--border)' }}>
-                <i className="fas fa-file-excel" style={{ color: '#1D6F42', width: 16 }}></i> Upload XLSX
-              </button>
-              <button onClick={() => { genderCsvRef.current?.click(); const el = document.getElementById('upload-dropdown'); if(el) el.style.display='none'; }}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit', borderTop: '1px solid var(--border)' }}>
-                <i className="fas fa-venus-mars" style={{ color: '#8B5CF6', width: 16 }}></i> Update Gender Only
-              </button>
-            </div>
-          </div>
-          <button className="btn btn-outline" onClick={exportCSV} title="Export leads to CSV">
-            <i className="fas fa-file-export"></i> <span className="hide-xs">Export CSV</span>
-          </button>
           {isAdmin && (
-            <button className="btn btn-outline" onClick={() => setShowDeleteByDate(true)} title="Delete leads by date"
-              style={{ color: '#DC2626', borderColor: '#FECACA' }}>
-              <i className="fas fa-calendar-times"></i> <span className="hide-xs">Delete by Date</span>
+            <div style={{ position: 'relative', display: 'inline-block' }} className="import-dropdown-wrap">
+              <button className="btn btn-outline" title="Download Templates"
+                onClick={() => {
+                  const el = document.getElementById('import-dropdown');
+                  if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
+                }}>
+                <i className="fas fa-download"></i> <span className="hide-xs"> Template</span>
+              </button>
+              <div id="import-dropdown" style={{ display: 'none', position: 'absolute', top: '110%', left: 0, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 200, minWidth: 180, overflow: 'hidden' }}>
+                <button onClick={() => { downloadTemplate(); const el = document.getElementById('import-dropdown'); if(el) el.style.display='none'; }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit' }}>
+                  <i className="fas fa-file-csv" style={{ color: '#059669', width: 16 }}></i> CSV Template
+                </button>
+                <button onClick={() => { downloadXLSXTemplate(); const el = document.getElementById('import-dropdown'); if(el) el.style.display='none'; }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit', borderTop: '1px solid var(--border)' }}>
+                  <i className="fas fa-file-excel" style={{ color: '#1D6F42', width: 16 }}></i> XLSX Template
+                </button>
+              </div>
+            </div>
+          )}
+          {isAdmin && (
+            <div style={{ position: 'relative', display: 'inline-block' }} className="import-dropdown-wrap">
+              <button className="btn btn-outline" disabled={csvLoading} style={{ color: 'var(--green)', borderColor: '#A7F3D0' }}
+                onClick={() => {
+                  const el = document.getElementById('upload-dropdown');
+                  if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
+                }}>
+                {csvLoading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-file-upload"></i>}
+                <span className="hide-xs">{csvLoading ? ' Importing...' : ' Import'}</span>
+                <i className="fas fa-chevron-down" style={{ fontSize: 10, marginLeft: 4 }}></i>
+              </button>
+              <div id="upload-dropdown" style={{ display: 'none', position: 'absolute', top: '110%', left: 0, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 200, minWidth: 180, overflow: 'hidden' }}>
+                <button onClick={() => { csvRef.current?.click(); const el = document.getElementById('upload-dropdown'); if(el) el.style.display='none'; }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit' }}>
+                  <i className="fas fa-file-csv" style={{ color: '#059669', width: 16 }}></i> Upload CSV
+                </button>
+                <button onClick={() => { xlsxRef.current?.click(); const el = document.getElementById('upload-dropdown'); if(el) el.style.display='none'; }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit', borderTop: '1px solid var(--border)' }}>
+                  <i className="fas fa-file-excel" style={{ color: '#1D6F42', width: 16 }}></i> Upload XLSX
+                </button>
+                <button onClick={() => { genderCsvRef.current?.click(); const el = document.getElementById('upload-dropdown'); if(el) el.style.display='none'; }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit', borderTop: '1px solid var(--border)' }}>
+                  <i className="fas fa-venus-mars" style={{ color: '#8B5CF6', width: 16 }}></i> Update Gender Only
+                </button>
+              </div>
+            </div>
+          )}
+          {isAdmin && (
+            <button className="btn btn-outline" onClick={exportCSV} title="Export leads to CSV">
+              <i className="fas fa-file-export"></i> <span className="hide-xs">Export CSV</span>
             </button>
           )}
           <button className="btn btn-primary" onClick={openAdd}>
@@ -847,14 +863,32 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
                 {bulkLoading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-user-minus"></i>} Unassign
               </button>
             )}
-            <button onClick={handleBulkDelete} disabled={bulkLoading}
-              style={{ background: '#EF4444', color: 'white', border: 'none', borderRadius: 8, padding: '7px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-              {bulkLoading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-trash"></i>} Delete
-            </button>
+            {isAdmin && (
+              <button onClick={handleBulkDelete} disabled={bulkLoading}
+                style={{ background: '#EF4444', color: 'white', border: 'none', borderRadius: 8, padding: '7px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {bulkLoading ? <><i className="fas fa-spinner fa-spin"></i> Deleting... </> : <><i className="fas fa-trash"></i> Delete</>}
+              </button>
+            )}
             <button onClick={clearSelection}
               style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: 8, padding: '7px 14px', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
               Cancel
             </button>
+          </div>
+        )}
+
+        {/* Progress popup for bulk operations */}
+        {bulkLoading && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: 'white', borderRadius: 16, padding: '32px 40px', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', minWidth: 280 }}>
+              <div style={{ width: 56, height: 56, background: 'var(--accent-light)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <i className="fas fa-spinner fa-spin" style={{ fontSize: 24, color: 'var(--accent)' }}></i>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Processing...</div>
+              <div style={{ fontSize: 13, color: 'var(--text3)' }}>Please wait while we process {selectedIds.size} lead{selectedIds.size > 1 ? 's' : ''}</div>
+              <div style={{ marginTop: 16, background: '#F1F5F9', borderRadius: 8, height: 8, overflow: 'hidden' }}>
+                <div style={{ height: '100%', background: 'var(--accent)', borderRadius: 8, width: '100%', animation: 'progressAnim 1.5s ease-in-out infinite' }}></div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -924,7 +958,7 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
           {/* ═══════════════════════════════════════════
               MOBILE + TABLET VIEW — CARDS with bottom buttons
           ═══════════════════════════════════════════ */}
-          <div className="lead-cards-view">
+          <div className="lead-cards-view" style={{ display: 'none' }}>
             {/* Select All bar for cards */}
             {paginated.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--bg2)', borderRadius: 10, marginBottom: 10, border: '1px solid var(--border)' }}>
@@ -946,7 +980,7 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
               const agent = agents.find((a) => a.id === l.agentId);
               return (
                 <div key={l.id} className="lead-card" style={{ background: isSelected ? 'var(--blue-bg)' : 'white' }}>
-                  {/* Top: checkbox + name + stage + Delete + Follow-up */}
+                  {/* Top: checkbox + name + stage + DELETE button */}
                   <div className="lead-card-top">
                     <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(l.id)}
                       style={{ cursor: 'pointer', width: 16, height: 16, marginTop: 2, flexShrink: 0 }} />
@@ -1016,12 +1050,16 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
                   {/* ── BOTTOM ACTION BUTTONS ── */}
                   <div className="lead-action-bar">
                     <div className="left-btns">
-                      <button className="btn-call" onClick={() => l.phone ? logCall(l) : openEdit(l)} title={l.phone ? `Call ${l.phone}` : 'No phone — click to edit'} style={{ opacity: l.phone ? 1 : 0.45 }}>
-                        <i className="fas fa-phone"></i> Call
-                      </button>
-                      <button className="btn-wa" onClick={() => l.phone ? logWhatsApp(l) : openEdit(l)} title={l.phone ? `WhatsApp ${l.phone}` : 'No phone — click to edit'} style={{ opacity: l.phone ? 1 : 0.45 }}>
-                        <i className="fab fa-whatsapp"></i> WA
-                      </button>
+                      {l.phone && (
+                        <button className="btn-call" onClick={() => logCall(l)} title={`Call ${l.phone}`}>
+                          <i className="fas fa-phone"></i> Call
+                        </button>
+                      )}
+                      {l.phone && (
+                        <button className="btn-wa" onClick={() => logWhatsApp(l)} title={`WhatsApp ${l.phone}`}>
+                          <i className="fab fa-whatsapp"></i> WhatsApp
+                        </button>
+                      )}
                       <button onClick={() => { setQuickFollowupLead(l); setQuickDate(''); setQuickNote(''); }} title="Set Follow-up"
                         style={{ background: '#FFF7ED', color: '#EA580C', border: '1px solid #FED7AA', borderRadius: 8, padding: '5px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <i className="fas fa-bell"></i> Follow-up
@@ -1079,16 +1117,7 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
                         </td>
                         <td>
                           <div style={{ fontWeight: 700, fontSize: 13 }}>{l.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>{new Date(l.createdAt).toLocaleDateString()}</div>
-                          <div style={{ display: 'flex', gap: 4 }}>
-                            <button className="btn-del" onClick={() => handleDelete(l.id)} style={{ padding: '3px 8px', fontSize: 11 }}>
-                              <i className="fas fa-trash"></i> Del
-                            </button>
-                            <button onClick={() => { setQuickFollowupLead(l); setQuickDate(''); setQuickNote(''); }}
-                              style={{ padding: '3px 8px', fontSize: 11, background: '#FFF7ED', color: '#EA580C', border: '1px solid #FED7AA', borderRadius: 6, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
-                              <i className="fas fa-bell"></i> Follow-up
-                            </button>
-                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{new Date(l.createdAt).toLocaleDateString()}</div>
                         </td>
                         <td>
                           <div style={{ fontSize: 12 }}>{l.email}</div>
@@ -1133,19 +1162,25 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
                         {/* Desktop action buttons — labelled */}
                         <td>
                           <div className="table-action-bar">
-                            <button className="btn-call" onClick={() => l.phone ? logCall(l) : openEdit(l)} title={l.phone ? `Call ${l.phone}` : 'No phone'} style={{ opacity: l.phone ? 1 : 0.45 }}>
-                              <i className="fas fa-phone"></i> Call
-                            </button>
-                            <button className="btn-wa" onClick={() => l.phone ? logWhatsApp(l) : openEdit(l)} title={l.phone ? `WhatsApp ${l.phone}` : 'No phone'} style={{ opacity: l.phone ? 1 : 0.45 }}>
-                              <i className="fab fa-whatsapp"></i> WA
-                            </button>
+                            {l.phone && (
+                              <button className="btn-call" onClick={() => logCall(l)} title={`Call ${l.phone}`}>
+                                <i className="fas fa-phone"></i> Call
+                              </button>
+                            )}
+                            {l.phone && (
+                              <button className="btn-wa" onClick={() => logWhatsApp(l)} title={`WhatsApp ${l.phone}`}>
+                                <i className="fab fa-whatsapp"></i> WA
+                              </button>
+                            )}
                             <button className="btn-notes" onClick={() => { setActivityLead(l); setActivityNote(''); setActivityType('call'); }} title="Add Note">
                               <i className="fas fa-sticky-note"></i> Notes
                             </button>
                             <button className="btn-edit" onClick={() => openEdit(l)}>
                               <i className="fas fa-edit"></i> Edit
                             </button>
-
+                            <button className="btn-del" onClick={() => handleDelete(l.id)}>
+                              <i className="fas fa-trash"></i> Del
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1444,104 +1479,6 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-      {/* Delete by Date Modal */}
-      {showDeleteByDate && (
-        <div className="modal-backdrop" onClick={() => !deleteByDateLoading && setShowDeleteByDate(false)}>
-          <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title" style={{ color: '#DC2626' }}>
-                <i className="fas fa-calendar-times" style={{ marginRight: 8 }}></i>Delete Leads by Date
-              </div>
-              {!deleteByDateLoading && (
-                <button className="modal-close" onClick={() => setShowDeleteByDate(false)}>×</button>
-              )}
-            </div>
-
-            {/* ── PROGRESS VIEW ── */}
-            {deleteByDateLoading ? (
-              <div style={{ padding: '8px 0 20px' }}>
-                <div style={{ textAlign: 'center', marginBottom: 18 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#DC2626', marginBottom: 4 }}>
-                    <i className="fas fa-trash" style={{ marginRight: 8 }}></i>Deleting...
-                  </div>
-                  <div style={{ fontSize: 13, color: 'var(--text3)' }}>
-                    {deleteDeleted.toLocaleString()} / {deleteTotal.toLocaleString()} leads deleted
-                  </div>
-                </div>
-                {/* Progress Bar */}
-                <div style={{ background: '#F3F4F6', borderRadius: 99, height: 22, overflow: 'hidden', marginBottom: 10, border: '1px solid #E5E7EB' }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${deleteProgress}%`,
-                    background: deleteProgress === 100 ? '#16A34A' : 'linear-gradient(90deg, #EF4444, #DC2626)',
-                    borderRadius: 99,
-                    transition: 'width 0.3s ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minWidth: deleteProgress > 5 ? 'auto' : 0,
-                  }}>
-                    {deleteProgress > 8 && (
-                      <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>{deleteProgress}%</span>
-                    )}
-                  </div>
-                </div>
-                {deleteProgress < 100 ? (
-                  <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center' }}>
-                    <i className="fas fa-circle-notch fa-spin" style={{ marginRight: 6 }}></i>
-                    Kripya wait karo, page band mat karo...
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 13, color: '#16A34A', textAlign: 'center', fontWeight: 600 }}>
-                    <i className="fas fa-check-circle" style={{ marginRight: 6 }}></i>
-                    Done! Reloading...
-                  </div>
-                )}
-                {/* Stats */}
-                <div style={{ display: 'flex', gap: 12, marginTop: 18, justifyContent: 'center' }}>
-                  <div style={{ textAlign: 'center', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 20px' }}>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: '#DC2626' }}>{deleteDeleted.toLocaleString()}</div>
-                    <div style={{ fontSize: 11, color: '#991B1B' }}>Deleted</div>
-                  </div>
-                  <div style={{ textAlign: 'center', background: '#F9FAFB', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 20px' }}>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text2)' }}>{(deleteTotal - deleteDeleted).toLocaleString()}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>Remaining</div>
-                  </div>
-                  <div style={{ textAlign: 'center', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '10px 20px' }}>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: '#16A34A' }}>{deleteProgress}%</div>
-                    <div style={{ fontSize: 11, color: '#15803D' }}>Complete</div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* ── INPUT VIEW ── */
-              <>
-                <div style={{ padding: '4px 0 16px' }}>
-                  <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 13, color: '#991B1B' }}>
-                    <i className="fas fa-exclamation-triangle" style={{ marginRight: 7 }}></i>
-                    Yeh action <strong>permanent</strong> hai — is date ki saari leads aur unki activities delete ho jaengi. Undo nahi ho sakta!
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Date select karo</label>
-                    <input type="date" className="form-input" value={deleteByDateVal}
-                      onChange={(e) => setDeleteByDateVal(e.target.value)} />
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>
-                    Sirf is date ko <strong>createdAt</strong> wali leads delete hongi.
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                  <button className="btn btn-outline" onClick={() => setShowDeleteByDate(false)}>Cancel</button>
-                  <button onClick={handleDeleteByDate} disabled={!deleteByDateVal}
-                    style={{ background: '#DC2626', color: 'white', border: 'none', borderRadius: 9, padding: '9px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <i className="fas fa-trash"></i> Delete All on {deleteByDateVal}
-                  </button>
-                </div>
-              </>
-            )}
           </div>
         </div>
       )}

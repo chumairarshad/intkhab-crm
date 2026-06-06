@@ -167,9 +167,11 @@ export default function InvoicesClient({
           <div className="topbar-sub">{invoices.length} invoice{invoices.length !== 1 ? 's' : ''}</div>
         </div>
         <div className="topbar-actions">
-          <button className="btn btn-primary" onClick={() => { resetForm(); setShowCreate(true); }}>
-            <i className="fas fa-plus"></i> <span className="hide-xs">New Invoice</span>
-          </button>
+          {isAdmin && (
+            <button className="btn btn-primary" onClick={() => { resetForm(); setShowCreate(true); }}>
+              <i className="fas fa-plus"></i> <span className="hide-xs">New Invoice</span>
+            </button>
+          )}
         </div>
       </div>
 

@@ -11,7 +11,7 @@ export default async function LeadsPage() {
   const [leads, totalLeads, allUsers, allProperties] = await Promise.all([
     getLeads(isAdmin, userId),
     getLeadsCount(isAdmin, userId),
-    getUsers(),
+    isAdmin ? getUsers() : Promise.resolve([]),
     getProperties(true, 0),
   ]);
 
