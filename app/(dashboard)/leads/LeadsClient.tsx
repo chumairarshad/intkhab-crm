@@ -946,7 +946,7 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
               const agent = agents.find((a) => a.id === l.agentId);
               return (
                 <div key={l.id} className="lead-card" style={{ background: isSelected ? 'var(--blue-bg)' : 'white' }}>
-                  {/* Top: checkbox + name + stage only */}
+                  {/* Top: checkbox + name + stage + Delete + Follow-up */}
                   <div className="lead-card-top">
                     <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(l.id)}
                       style={{ cursor: 'pointer', width: 16, height: 16, marginTop: 2, flexShrink: 0 }} />
@@ -955,6 +955,14 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
                       <div style={{ fontSize: 11, color: 'var(--text3)' }}>{new Date(l.createdAt).toLocaleDateString()}</div>
                     </div>
                     <span className={`badge ${stageBadge(l.stage)}`}>{l.stage}</span>
+                    <button className="btn-del" onClick={() => handleDelete(l.id)} title="Delete Lead"
+                      style={{ marginLeft: 8, padding: '5px 10px', fontSize: 11 }}>
+                      <i className="fas fa-trash"></i> Delete
+                    </button>
+                    <button onClick={() => { setQuickFollowupLead(l); setQuickDate(''); setQuickNote(''); }} title="Set Follow-up"
+                      style={{ marginLeft: 4, padding: '5px 10px', fontSize: 11, background: '#FFF7ED', color: '#EA580C', border: '1px solid #FED7AA', borderRadius: 8, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <i className="fas fa-bell"></i> Follow-up
+                    </button>
                   </div>
 
                   {/* Body: contact + budget + source + agent */}
@@ -1024,9 +1032,6 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
                       <button className="btn-edit" onClick={() => openEdit(l)} title="Edit Lead">
                         <i className="fas fa-edit"></i> Edit
                       </button>
-                      <button className="btn-del" onClick={() => handleDelete(l.id)} title="Delete Lead">
-                        <i className="fas fa-trash"></i> Delete
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -1074,7 +1079,16 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
                         </td>
                         <td>
                           <div style={{ fontWeight: 700, fontSize: 13 }}>{l.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{new Date(l.createdAt).toLocaleDateString()}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>{new Date(l.createdAt).toLocaleDateString()}</div>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <button className="btn-del" onClick={() => handleDelete(l.id)} style={{ padding: '3px 8px', fontSize: 11 }}>
+                              <i className="fas fa-trash"></i> Del
+                            </button>
+                            <button onClick={() => { setQuickFollowupLead(l); setQuickDate(''); setQuickNote(''); }}
+                              style={{ padding: '3px 8px', fontSize: 11, background: '#FFF7ED', color: '#EA580C', border: '1px solid #FED7AA', borderRadius: 6, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
+                              <i className="fas fa-bell"></i> Follow-up
+                            </button>
+                          </div>
                         </td>
                         <td>
                           <div style={{ fontSize: 12 }}>{l.email}</div>
@@ -1131,9 +1145,7 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
                             <button className="btn-edit" onClick={() => openEdit(l)}>
                               <i className="fas fa-edit"></i> Edit
                             </button>
-                            <button className="btn-del" onClick={() => handleDelete(l.id)}>
-                              <i className="fas fa-trash"></i> Del
-                            </button>
+
                           </div>
                         </td>
                       </tr>
