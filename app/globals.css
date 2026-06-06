@@ -340,3 +340,32 @@ tr:last-child td { border-bottom: none; }
 [data-theme="dark"] .mob-more-drawer { background: #1E293B; }
 
 .badge-lost { background: #F3F4F6; color: #6B7280; border: 1px solid #D1D5DB; }
+/* ── Lead Cards / Table Responsive View ── */
+/* Desktop default: show table, hide cards */
+.lead-cards-view { display: none !important; }
+.lead-table-view  { display: block !important; }
+
+/* Mobile: hide table, show cards */
+@media (max-width: 768px) {
+  .lead-cards-view { display: block !important; }
+  .lead-table-view  { display: none !important; }
+}
+
+/* ── Lead Action Bar Buttons ── */
+.lead-card { background: white; border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+.lead-card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.lead-card-body { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 10px; font-size: 12px; color: var(--text3); }
+.lead-action-bar { display: flex !important; align-items: center; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.lead-action-bar .left-btns { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; }
+.lead-action-bar button, .table-action-bar button { display: inline-flex !important; align-items: center; gap: 5px; padding: 7px 13px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; white-space: nowrap; justify-content: center; }
+.table-action-bar { display: flex; gap: 4px; flex-wrap: wrap; }
+.btn-call   { background: #EFF6FF !important; color: #2563EB !important; }
+.btn-call:hover { background: #DBEAFE !important; }
+.btn-wa     { background: #DCFCE7 !important; color: #16A34A !important; }
+.btn-wa:hover { background: #BBF7D0 !important; }
+.btn-notes  { background: #FEF9C3 !important; color: #A16207 !important; }
+.btn-notes:hover { background: #FEF08A !important; }
+.btn-edit   { background: #F3F4F6 !important; color: #374151 !important; }
+.btn-edit:hover { background: #E5E7EB !important; }
+.btn-del    { background: #FEE2E2 !important; color: #DC2626 !important; }
+.btn-del:hover { background: #FECACA !important; }
