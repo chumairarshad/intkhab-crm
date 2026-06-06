@@ -710,9 +710,15 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
         .btn-del    { background: #FEE2E2; color: #DC2626; }
         .btn-del:hover { background: #FECACA; }
 
-        /* All screens: show cards, hide table */
+        /* Mobile/default: show cards, hide table */
         .lead-cards-view  { display: block !important; }
         .lead-table-view  { display: none !important; }
+
+        /* Desktop (769px+): hide cards, show table */
+        @media (min-width: 769px) {
+          .lead-cards-view { display: none !important; }
+          .lead-table-view { display: block !important; }
+        }
       `}</style>
 
       <div className="topbar" style={{ paddingLeft: 60 }}>
@@ -934,7 +940,7 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
           {/* ═══════════════════════════════════════════
               MOBILE + TABLET VIEW — CARDS with bottom buttons
           ═══════════════════════════════════════════ */}
-          <div className="lead-cards-view" style={{ display: 'none' }}>
+          <div className="lead-cards-view">
             {/* Select All bar for cards */}
             {paginated.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--bg2)', borderRadius: 10, marginBottom: 10, border: '1px solid var(--border)' }}>
