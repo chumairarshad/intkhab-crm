@@ -958,16 +958,12 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
                   {/* ── BOTTOM ACTION BUTTONS ── */}
                   <div className="lead-action-bar">
                     <div className="left-btns">
-                      {l.phone && (
-                        <button className="btn-call" onClick={() => logCall(l)} title={`Call ${l.phone}`}>
-                          <i className="fas fa-phone"></i> Call
-                        </button>
-                      )}
-                      {l.phone && (
-                        <button className="btn-wa" onClick={() => logWhatsApp(l)} title={`WhatsApp ${l.phone}`}>
-                          <i className="fab fa-whatsapp"></i> WhatsApp
-                        </button>
-                      )}
+                      <button className="btn-call" onClick={() => l.phone ? logCall(l) : openEdit(l)} title={l.phone ? `Call ${l.phone}` : 'No phone — click to edit'} style={{ opacity: l.phone ? 1 : 0.45 }}>
+                        <i className="fas fa-phone"></i> Call
+                      </button>
+                      <button className="btn-wa" onClick={() => l.phone ? logWhatsApp(l) : openEdit(l)} title={l.phone ? `WhatsApp ${l.phone}` : 'No phone — click to edit'} style={{ opacity: l.phone ? 1 : 0.45 }}>
+                        <i className="fab fa-whatsapp"></i> WA
+                      </button>
                       <button onClick={() => { setQuickFollowupLead(l); setQuickDate(''); setQuickNote(''); }} title="Set Follow-up"
                         style={{ background: '#FFF7ED', color: '#EA580C', border: '1px solid #FED7AA', borderRadius: 8, padding: '5px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <i className="fas fa-bell"></i> Follow-up
@@ -1070,16 +1066,12 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
                         {/* Desktop action buttons — labelled */}
                         <td>
                           <div className="table-action-bar">
-                            {l.phone && (
-                              <button className="btn-call" onClick={() => logCall(l)} title={`Call ${l.phone}`}>
-                                <i className="fas fa-phone"></i> Call
-                              </button>
-                            )}
-                            {l.phone && (
-                              <button className="btn-wa" onClick={() => logWhatsApp(l)} title={`WhatsApp ${l.phone}`}>
-                                <i className="fab fa-whatsapp"></i> WA
-                              </button>
-                            )}
+                            <button className="btn-call" onClick={() => l.phone ? logCall(l) : openEdit(l)} title={l.phone ? `Call ${l.phone}` : 'No phone'} style={{ opacity: l.phone ? 1 : 0.45 }}>
+                              <i className="fas fa-phone"></i> Call
+                            </button>
+                            <button className="btn-wa" onClick={() => l.phone ? logWhatsApp(l) : openEdit(l)} title={l.phone ? `WhatsApp ${l.phone}` : 'No phone'} style={{ opacity: l.phone ? 1 : 0.45 }}>
+                              <i className="fab fa-whatsapp"></i> WA
+                            </button>
                             <button className="btn-notes" onClick={() => { setActivityLead(l); setActivityNote(''); setActivityType('call'); }} title="Add Note">
                               <i className="fas fa-sticky-note"></i> Notes
                             </button>
