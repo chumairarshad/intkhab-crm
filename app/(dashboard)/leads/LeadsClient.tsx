@@ -128,6 +128,9 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
   const [showDeleteByDate, setShowDeleteByDate] = useState(false);
   const [deleteByDateVal, setDeleteByDateVal] = useState('2026-06-06');
   const [deleteByDateLoading, setDeleteByDateLoading] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState(0);
+  const [deleteTotal, setDeleteTotal] = useState(0);
+  const [deleteDeleted, setDeleteDeleted] = useState(0);
 
   const agentMap = Object.fromEntries(agents.map((a) => [a.id, a.name]));
 
@@ -537,18 +540,44 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
     if (!deleteByDateVal) return;
     if (!confirm(`⚠️ Are you sure? This will PERMANENTLY delete ALL leads added on ${deleteByDateVal}. This cannot be undone!`)) return;
     setDeleteByDateLoading(true);
-    const res = await fetch('/api/leads/bulk-actions', {
+    setDeleteProgress(0);
+    setDeleteDeleted(0);
+
+    // Step 1: count total
+    const countRes = await fetch('/api/leads/bulk-actions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete-by-date', date: deleteByDateVal }),
+      body: JSON.stringify({ action: 'count-by-date', date: deleteByDateVal }),
     });
-    const data = await res.json();
-    if (data.success) {
-      flash(`🗑️ ${data.count} leads deleted for ${deleteByDateVal}. Reloading...`);
-      setTimeout(() => window.location.reload(), 1500);
-    } else {
-      flash(`❌ Error: ${data.error}`);
+    const countData = await countRes.json();
+    const total = countData.count || 0;
+    setDeleteTotal(total);
+
+    if (total === 0) {
+      flash(`⚠️ No leads found for ${deleteByDateVal}.`);
+      setDeleteByDateLoading(false);
+      return;
     }
+
+    // Step 2: batch delete with progress
+    let deleted = 0;
+    const BATCH = 200;
+    while (true) {
+      const res = await fetch('/api/leads/bulk-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete-batch-by-date', date: deleteByDateVal, batchSize: BATCH }),
+      });
+      const data = await res.json();
+      if (!data.success) { flash(`❌ Error during deletion`); break; }
+      deleted += data.deleted;
+      setDeleteDeleted(deleted);
+      setDeleteProgress(Math.min(100, Math.round((deleted / total) * 100)));
+      if (data.remaining === 0 || data.deleted === 0) break;
+    }
+
+    flash(`🗑️ ${deleted} leads deleted for ${deleteByDateVal}. Reloading...`);
+    setTimeout(() => window.location.reload(), 1800);
     setDeleteByDateLoading(false);
     setShowDeleteByDate(false);
   };
@@ -1413,37 +1442,99 @@ export default function LeadsClient({ leads: initial, agents, properties, isAdmi
       )}
       {/* Delete by Date Modal */}
       {showDeleteByDate && (
-        <div className="modal-backdrop" onClick={() => setShowDeleteByDate(false)}>
-          <div className="modal" style={{ maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={() => !deleteByDateLoading && setShowDeleteByDate(false)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div className="modal-title" style={{ color: '#DC2626' }}>
                 <i className="fas fa-calendar-times" style={{ marginRight: 8 }}></i>Delete Leads by Date
               </div>
-              <button className="modal-close" onClick={() => setShowDeleteByDate(false)}>×</button>
+              {!deleteByDateLoading && (
+                <button className="modal-close" onClick={() => setShowDeleteByDate(false)}>×</button>
+              )}
             </div>
-            <div style={{ padding: '4px 0 16px' }}>
-              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 13, color: '#991B1B' }}>
-                <i className="fas fa-exclamation-triangle" style={{ marginRight: 7 }}></i>
-                Yeh action <strong>permanent</strong> hai — is date ki saari leads aur unki activities delete ho jaengi. Undo nahi ho sakta!
+
+            {/* ── PROGRESS VIEW ── */}
+            {deleteByDateLoading ? (
+              <div style={{ padding: '8px 0 20px' }}>
+                <div style={{ textAlign: 'center', marginBottom: 18 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#DC2626', marginBottom: 4 }}>
+                    <i className="fas fa-trash" style={{ marginRight: 8 }}></i>Deleting...
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text3)' }}>
+                    {deleteDeleted.toLocaleString()} / {deleteTotal.toLocaleString()} leads deleted
+                  </div>
+                </div>
+                {/* Progress Bar */}
+                <div style={{ background: '#F3F4F6', borderRadius: 99, height: 22, overflow: 'hidden', marginBottom: 10, border: '1px solid #E5E7EB' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${deleteProgress}%`,
+                    background: deleteProgress === 100 ? '#16A34A' : 'linear-gradient(90deg, #EF4444, #DC2626)',
+                    borderRadius: 99,
+                    transition: 'width 0.3s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: deleteProgress > 5 ? 'auto' : 0,
+                  }}>
+                    {deleteProgress > 8 && (
+                      <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>{deleteProgress}%</span>
+                    )}
+                  </div>
+                </div>
+                {deleteProgress < 100 ? (
+                  <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center' }}>
+                    <i className="fas fa-circle-notch fa-spin" style={{ marginRight: 6 }}></i>
+                    Kripya wait karo, page band mat karo...
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, color: '#16A34A', textAlign: 'center', fontWeight: 600 }}>
+                    <i className="fas fa-check-circle" style={{ marginRight: 6 }}></i>
+                    Done! Reloading...
+                  </div>
+                )}
+                {/* Stats */}
+                <div style={{ display: 'flex', gap: 12, marginTop: 18, justifyContent: 'center' }}>
+                  <div style={{ textAlign: 'center', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 20px' }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: '#DC2626' }}>{deleteDeleted.toLocaleString()}</div>
+                    <div style={{ fontSize: 11, color: '#991B1B' }}>Deleted</div>
+                  </div>
+                  <div style={{ textAlign: 'center', background: '#F9FAFB', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 20px' }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text2)' }}>{(deleteTotal - deleteDeleted).toLocaleString()}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>Remaining</div>
+                  </div>
+                  <div style={{ textAlign: 'center', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '10px 20px' }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: '#16A34A' }}>{deleteProgress}%</div>
+                    <div style={{ fontSize: 11, color: '#15803D' }}>Complete</div>
+                  </div>
+                </div>
               </div>
-              <div className="form-group">
-                <label className="form-label">Date select karo</label>
-                <input type="date" className="form-input" value={deleteByDateVal}
-                  onChange={(e) => setDeleteByDateVal(e.target.value)} />
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>
-                Sirf is date ko <strong>createdAt</strong> wali leads delete hongi.
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn btn-outline" onClick={() => setShowDeleteByDate(false)}>Cancel</button>
-              <button onClick={handleDeleteByDate} disabled={!deleteByDateVal || deleteByDateLoading}
-                style={{ background: '#DC2626', color: 'white', border: 'none', borderRadius: 9, padding: '9px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}>
-                {deleteByDateLoading
-                  ? <><i className="fas fa-spinner fa-spin"></i> Deleting...</>
-                  : <><i className="fas fa-trash"></i> Delete All on {deleteByDateVal}</>}
-              </button>
-            </div>
+            ) : (
+              /* ── INPUT VIEW ── */
+              <>
+                <div style={{ padding: '4px 0 16px' }}>
+                  <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 13, color: '#991B1B' }}>
+                    <i className="fas fa-exclamation-triangle" style={{ marginRight: 7 }}></i>
+                    Yeh action <strong>permanent</strong> hai — is date ki saari leads aur unki activities delete ho jaengi. Undo nahi ho sakta!
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Date select karo</label>
+                    <input type="date" className="form-input" value={deleteByDateVal}
+                      onChange={(e) => setDeleteByDateVal(e.target.value)} />
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>
+                    Sirf is date ko <strong>createdAt</strong> wali leads delete hongi.
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button className="btn btn-outline" onClick={() => setShowDeleteByDate(false)}>Cancel</button>
+                  <button onClick={handleDeleteByDate} disabled={!deleteByDateVal}
+                    style={{ background: '#DC2626', color: 'white', border: 'none', borderRadius: 9, padding: '9px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <i className="fas fa-trash"></i> Delete All on {deleteByDateVal}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

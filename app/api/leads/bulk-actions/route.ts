@@ -10,14 +10,38 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { action, ids, agentId } = body as { action: string; ids: number[]; agentId?: number };
+  const { action, ids, agentId } = body as { action: string; ids?: number[]; agentId?: number };
+
+  // ── Count by date (for progress UI) ──────────────────────────
+  if (action === 'count-by-date') {
+    if (user?.role !== 'admin') return NextResponse.json({ error: 'Admins only' }, { status: 403 });
+    const { date } = body as { date: string };
+    if (!date) return NextResponse.json({ error: 'date required' }, { status: 400 });
+    const result = await sql`SELECT COUNT(*)::int as count FROM leads WHERE DATE("createdAt") = ${date}::date`;
+    return NextResponse.json({ count: Number(result[0].count) });
+  }
+
+  // ── Delete batch by date (called multiple times for progress) ─
+  if (action === 'delete-batch-by-date') {
+    if (user?.role !== 'admin') return NextResponse.json({ error: 'Admins only' }, { status: 403 });
+    const { date, batchSize } = body as { date: string; batchSize: number };
+    if (!date) return NextResponse.json({ error: 'date required' }, { status: 400 });
+    const batch = batchSize || 200;
+    // Get IDs for this batch
+    const toDelete = await sql`SELECT id FROM leads WHERE DATE("createdAt") = ${date}::date LIMIT ${batch}`;
+    if (!toDelete.length) return NextResponse.json({ success: true, deleted: 0, remaining: 0 });
+    const batchIds = toDelete.map((r: any) => Number(r.id));
+    await sql`DELETE FROM lead_activities WHERE "leadId" = ANY(${batchIds})`;
+    await sql`DELETE FROM leads WHERE id = ANY(${batchIds})`;
+    const remaining = await sql`SELECT COUNT(*)::int as count FROM leads WHERE DATE("createdAt") = ${date}::date`;
+    return NextResponse.json({ success: true, deleted: batchIds.length, remaining: Number(remaining[0].count) });
+  }
 
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
     return NextResponse.json({ error: 'No lead IDs provided' }, { status: 400 });
   }
 
   if (action === 'delete') {
-    // Only admins can bulk delete, or agents can delete their own leads
     for (const id of ids) {
       await deleteLead(id);
     }
@@ -41,17 +65,6 @@ export async function POST(req: NextRequest) {
       if (lead) count++;
     }
     return NextResponse.json({ success: true, count });
-  }
-
-  if (action === 'delete-by-date') {
-    // Admin only
-    if (user?.role !== 'admin') return NextResponse.json({ error: 'Admins only' }, { status: 403 });
-    const { date } = body as { date: string }; // expects 'YYYY-MM-DD'
-    if (!date) return NextResponse.json({ error: 'date required' }, { status: 400 });
-    // Delete activities first, then leads
-    await sql`DELETE FROM lead_activities WHERE "leadId" IN (SELECT id FROM leads WHERE DATE("createdAt") = ${date}::date)`;
-    const result = await sql`DELETE FROM leads WHERE DATE("createdAt") = ${date}::date RETURNING id`;
-    return NextResponse.json({ success: true, count: result.length, date });
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
