@@ -735,7 +735,7 @@ export async function initGamificationTables() {
     id SERIAL PRIMARY KEY,
     "agentId" INTEGER NOT NULL,
     date TEXT NOT NULL,
-    "callsTarget" INTEGER NOT NULL DEFAULT 10,
+    "callsTarget" INTEGER NOT NULL DEFAULT 30,
     "callsDone" INTEGER NOT NULL DEFAULT 0,
     "closedTarget" INTEGER NOT NULL DEFAULT 2,
     "closedDone" INTEGER NOT NULL DEFAULT 0,
@@ -759,7 +759,7 @@ export async function getTodayChallenge(agentId: number) {
   const rows = await sql`SELECT * FROM daily_challenges WHERE "agentId" = ${agentId} AND date = ${today}`;
   if (rows.length) return rows[0];
   // create today's challenge
-  const newRows = await sql`INSERT INTO daily_challenges ("agentId", date, "callsTarget", "closedTarget", "whatsappTarget") VALUES (${agentId}, ${today}, 10, 2, 5) RETURNING *`;
+  const newRows = await sql`INSERT INTO daily_challenges ("agentId", date, "callsTarget", "closedTarget", "whatsappTarget") VALUES (${agentId}, ${today}, 30, 2, 5) RETURNING *`;
   return newRows[0];
 }
 
@@ -782,9 +782,9 @@ export async function updateTodayChallenge(agentId: number) {
   const whatsappDone = Number(whatsapp[0]?.c || 0);
 
   await sql`INSERT INTO daily_challenges ("agentId", date, "callsTarget", "closedTarget", "whatsappTarget", "callsDone", "closedDone", "whatsappDone", completed)
-    VALUES (${agentId}, ${today}, 10, 2, 5, ${callsDone}, ${closedDone}, ${whatsappDone}, ${callsDone >= 10 && closedDone >= 2 && whatsappDone >= 5})
+    VALUES (${agentId}, ${today}, 30, 2, 5, ${callsDone}, ${closedDone}, ${whatsappDone}, ${callsDone >= 30 && closedDone >= 2 && whatsappDone >= 5})
     ON CONFLICT ("agentId", date) DO UPDATE SET "callsDone"=${callsDone}, "closedDone"=${closedDone}, "whatsappDone"=${whatsappDone},
-    completed=${callsDone >= 10 && closedDone >= 2 && whatsappDone >= 5}`;
+    completed=${callsDone >= 30 && closedDone >= 2 && whatsappDone >= 5}`;
 
   // update streak
   const todayStr = today;
@@ -802,5 +802,5 @@ export async function updateTodayChallenge(agentId: number) {
   await sql`INSERT INTO agent_streaks ("agentId","currentStreak","longestStreak","lastActiveDate","totalXP") VALUES (${agentId},${newStreak},${longest},${todayStr},${xpGain})
     ON CONFLICT ("agentId") DO UPDATE SET "currentStreak"=${newStreak},"longestStreak"=${longest},"lastActiveDate"=${todayStr},"totalXP"=agent_streaks."totalXP"+${xpGain}`;
 
-  return { callsDone, closedDone, whatsappDone, callsTarget: 10, closedTarget: 2, whatsappTarget: 5 };
+  return { callsDone, closedDone, whatsappDone, callsTarget: 30, closedTarget: 2, whatsappTarget: 5 };
 }
