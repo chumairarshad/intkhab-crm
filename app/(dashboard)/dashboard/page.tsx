@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { getProperties, getLeads, getEvents, formatPKR, getAgents, getLeadsGenderStats } from '@/lib/db';
 import Link from 'next/link';
 import DailyBriefing from './DailyBriefing';
+import DailyChallenge from '@/components/DailyChallenge';
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -91,6 +92,9 @@ export default async function DashboardPage() {
         </div>
       </div>
       <div className="page-content">
+        <div style={{ marginBottom: 18 }}>
+          <DailyChallenge agentId={userId} />
+        </div>
         <div className="grid-layout grid-4" style={{ marginBottom: 22 }}>
           <div className="stat-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>

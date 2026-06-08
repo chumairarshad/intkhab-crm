@@ -720,3 +720,87 @@ export async function getLeadsGenderStats(isAdmin: boolean, userId: number): Pro
   }
   return { total, male, female, stageCounts };
 }
+
+// ─── GAMIFICATION ──────────────────────────────────────────────
+export async function initGamificationTables() {
+  await sql`CREATE TABLE IF NOT EXISTS agent_streaks (
+    "agentId" INTEGER PRIMARY KEY,
+    "currentStreak" INTEGER NOT NULL DEFAULT 0,
+    "longestStreak" INTEGER NOT NULL DEFAULT 0,
+    "lastActiveDate" TEXT NOT NULL DEFAULT '',
+    "totalXP" INTEGER NOT NULL DEFAULT 0,
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`;
+  await sql`CREATE TABLE IF NOT EXISTS daily_challenges (
+    id SERIAL PRIMARY KEY,
+    "agentId" INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    "callsTarget" INTEGER NOT NULL DEFAULT 10,
+    "callsDone" INTEGER NOT NULL DEFAULT 0,
+    "closedTarget" INTEGER NOT NULL DEFAULT 2,
+    "closedDone" INTEGER NOT NULL DEFAULT 0,
+    "whatsappTarget" INTEGER NOT NULL DEFAULT 5,
+    "whatsappDone" INTEGER NOT NULL DEFAULT 0,
+    completed BOOLEAN NOT NULL DEFAULT false,
+    UNIQUE("agentId", date)
+  )`;
+}
+
+export async function getAgentStreak(agentId: number) {
+  await initGamificationTables();
+  const rows = await sql`SELECT * FROM agent_streaks WHERE "agentId" = ${agentId}`;
+  if (!rows.length) return { currentStreak: 0, longestStreak: 0, lastActiveDate: '', totalXP: 0 };
+  return { currentStreak: Number(rows[0].currentStreak), longestStreak: Number(rows[0].longestStreak), lastActiveDate: String(rows[0].lastActiveDate), totalXP: Number(rows[0].totalXP) };
+}
+
+export async function getTodayChallenge(agentId: number) {
+  await initGamificationTables();
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = await sql`SELECT * FROM daily_challenges WHERE "agentId" = ${agentId} AND date = ${today}`;
+  if (rows.length) return rows[0];
+  // create today's challenge
+  const newRows = await sql`INSERT INTO daily_challenges ("agentId", date, "callsTarget", "closedTarget", "whatsappTarget") VALUES (${agentId}, ${today}, 10, 2, 5) RETURNING *`;
+  return newRows[0];
+}
+
+export async function updateTodayChallenge(agentId: number) {
+  await initGamificationTables();
+  const today = new Date().toISOString().slice(0, 10);
+  const todayStart = new Date(today + 'T00:00:00.000Z');
+  const tomorrowStart = new Date(todayStart); tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+  const [calls, closed, whatsapp] = await Promise.all([
+    sql`SELECT COUNT(*) as c FROM lead_activities WHERE "agentId" = (SELECT id FROM users WHERE id = ${agentId} LIMIT 1) AND type = 'call' AND "createdAt" >= ${todayStart} AND "createdAt" < ${tomorrowStart}`.catch(() =>
+      sql`SELECT COUNT(*) as c FROM lead_activities la JOIN leads l ON la."leadId" = l.id WHERE l."agentId" = ${agentId} AND la.type = 'call' AND la."createdAt" >= ${todayStart} AND la."createdAt" < ${tomorrowStart}`
+    ),
+    sql`SELECT COUNT(*) as c FROM leads WHERE "agentId" = ${agentId} AND stage = 'Closed' AND "createdAt" >= ${todayStart} AND "createdAt" < ${tomorrowStart}`,
+    sql`SELECT COUNT(*) as c FROM lead_activities la JOIN leads l ON la."leadId" = l.id WHERE l."agentId" = ${agentId} AND la.type = 'whatsapp' AND la."createdAt" >= ${todayStart} AND la."createdAt" < ${tomorrowStart}`,
+  ]);
+
+  const callsDone = Number(calls[0]?.c || 0);
+  const closedDone = Number(closed[0]?.c || 0);
+  const whatsappDone = Number(whatsapp[0]?.c || 0);
+
+  await sql`INSERT INTO daily_challenges ("agentId", date, "callsTarget", "closedTarget", "whatsappTarget", "callsDone", "closedDone", "whatsappDone", completed)
+    VALUES (${agentId}, ${today}, 10, 2, 5, ${callsDone}, ${closedDone}, ${whatsappDone}, ${callsDone >= 10 && closedDone >= 2 && whatsappDone >= 5})
+    ON CONFLICT ("agentId", date) DO UPDATE SET "callsDone"=${callsDone}, "closedDone"=${closedDone}, "whatsappDone"=${whatsappDone},
+    completed=${callsDone >= 10 && closedDone >= 2 && whatsappDone >= 5}`;
+
+  // update streak
+  const todayStr = today;
+  const yesterday = new Date(todayStart); yesterday.setDate(yesterday.getDate() - 1);
+  const yStr = yesterday.toISOString().slice(0, 10);
+  const streak = await sql`SELECT * FROM agent_streaks WHERE "agentId" = ${agentId}`;
+  const cur = streak.length ? streak[0] : { currentStreak: 0, longestStreak: 0, lastActiveDate: '', totalXP: 0 };
+  let newStreak = Number(cur.currentStreak);
+  const last = String(cur.lastActiveDate);
+  if (last === todayStr) { /* already updated */ }
+  else if (last === yStr) { newStreak += 1; }
+  else { newStreak = 1; }
+  const longest = Math.max(newStreak, Number(cur.longestStreak));
+  const xpGain = callsDone + (closedDone * 10) + (whatsappDone * 2);
+  await sql`INSERT INTO agent_streaks ("agentId","currentStreak","longestStreak","lastActiveDate","totalXP") VALUES (${agentId},${newStreak},${longest},${todayStr},${xpGain})
+    ON CONFLICT ("agentId") DO UPDATE SET "currentStreak"=${newStreak},"longestStreak"=${longest},"lastActiveDate"=${todayStr},"totalXP"=agent_streaks."totalXP"+${xpGain}`;
+
+  return { callsDone, closedDone, whatsappDone, callsTarget: 10, closedTarget: 2, whatsappTarget: 5 };
+}
