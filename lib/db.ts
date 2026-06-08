@@ -802,5 +802,5 @@ export async function updateTodayChallenge(agentId: number) {
   await sql`INSERT INTO agent_streaks ("agentId","currentStreak","longestStreak","lastActiveDate","totalXP") VALUES (${agentId},${newStreak},${longest},${todayStr},${xpGain})
     ON CONFLICT ("agentId") DO UPDATE SET "currentStreak"=${newStreak},"longestStreak"=${longest},"lastActiveDate"=${todayStr},"totalXP"=agent_streaks."totalXP"+${xpGain}`;
 
-  return { callsDone, closedDone, whatsappDone, callsTarget: 30, closedTarget: 2, whatsappTarget: 5 };
+  return { callsDone, closedDone, whatsappDone, callsTarget: 30, closedTarget: 2, whatsappTarget: 5, completed: callsDone >= 30 && closedDone >= 2 && whatsappDone >= 5 };
 }
