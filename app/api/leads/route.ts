@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getLeads, getLeadsCount, createLead } from '@/lib/db';
 import { auth } from '@/lib/auth';
+import { getMobileUser } from '@/lib/mobile-auth';
+
+async function getUser(req: NextRequest) {
+  const mobileUser = getMobileUser(req);
+  if (mobileUser) return mobileUser;
+  const session = await auth();
+  return session?.user as any;
+}
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  const user = session?.user as any;
+  const user = await getUser(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const isAdmin = user?.role === 'admin';
   const userId = parseInt(user?.id || '0');
   const { searchParams } = new URL(req.url);
@@ -25,9 +33,10 @@ export async function GET(req: NextRequest) {
     limit,
   });
 }
+
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  const user = session?.user as any;
+  const user = await getUser(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const body = await req.json();
   const lead = await createLead({
     name: body.name,
